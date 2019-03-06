@@ -1,0 +1,53 @@
+---
+title: "SUS Admission Type Data"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+# Ordinary Patients (type = 1 ie no daycases) - Weekends/Bank Holidays Only
+
+
+```{r generate data,include=FALSE}
+source("SUS v2 data explore admission types.R")
+```
+
+
+## Elective Charts
+
+```{r elective care}
+print("Overall Elective")
+plot(admDFw$Var1,admDFw$Elective)
+print("Waiting List")
+plot(subset(admDF,Var2=="11",select=c(Var1,Freq))) # Waiting List
+print("Booked")
+plot(subset(admDF,Var2=="12",select=c(Var1,Freq))) # Booked
+print("Planned")
+plot(subset(admDF,Var2=="13",select=c(Var1,Freq))) # Planned
+
+
+```
+
+## Emergency Care
+
+```{r emergency care}
+print("Overall Emergency")
+plot(admDFw$Var1,admDFw$Emergency)
+print("A&E")
+plot(subset(admDF,Var2=="21",select=c(Var1,Freq))) # A&E
+print("GP")
+plot(subset(admDF,Var2=="22",select=c(Var1,Freq))) # GP
+print("Bed bureau")
+plot(subset(admDF,Var2=="23",select=c(Var1,Freq))) # Bed bureau
+print("Consultant clinic")
+plot(subset(admDF,Var2=="24",select=c(Var1,Freq))) # Consultant Clinic
+print("Other (type 28)")
+plot(subset(admDF,Var2=="28",select=c(Var1,Freq))) # "Other" including emergency transfers in
+```
+
