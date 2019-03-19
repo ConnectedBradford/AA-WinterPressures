@@ -62,6 +62,9 @@ data$`_SpellStart_DateTime`<-as.POSIXct(strptime(paste(data$`Start Date (Hospita
 data$`_Discharge_DateTime`<-as.POSIXct(strptime(paste(data$`Discharge Date (From Hospital Provider Spell)`,data$`Discharge Time (Hospital Provider Spell)`,sep=" "),format="%Y%m%d %H:%M:%S"))
 
 
+## generates some missing data on discharge - several which have impossible discharge times (ie during the "missing hour" on DST change), others have a time but no date
+## presently not dealt with!
+
 
 firstepisodes<-filter(data,`Episode Number`=="1")
 ## give each spell a unique ID - hopefully not required once we have "HOSPITAL PROVIDER SPELL NUMBER" or "ACTIVITY IDENTIFIER"
