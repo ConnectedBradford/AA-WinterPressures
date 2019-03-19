@@ -4,7 +4,7 @@
 ## 20190131 - doesn't manage to fuzzy match dates and times so critical care stays end up being duplicated
 
 
-invisible(utils::memory.limit(32000))
+#invisible(utils::memory.limit(32000))
 ## will force swap file usage (very slow!)
 
 # library(DBI)
@@ -72,6 +72,8 @@ print("* Base table created *")
 # spreaded <- spread(arranged,var,value)
 # filtered <- filter(spreaded,`Start Date`!="")
 # 
+##somewhere in here = Error: Duplicate identifiers for rows (6969553, 6969554), (6969555, 6969556) ... etc
+##not going to try too hard to fix it as we're switching to an episode-based rather than stay-based method
 
 ## in a piped format:
 
@@ -80,7 +82,7 @@ repeateddata <- select(data,"Pkid.x","_TLSpellDigest","Episode Number","Last Epi
   ## all the ones that end in a digit
   separate(var,c("var","stay"),sep="[ ](?=[^ ]+$)") %>% 
   ## regex to match last space of a string
-  arrange(DigestPseudID,`Episode Number`,`Start Date (Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`) %>% 
+  arrange(`Pkid.x`,`Episode Number`,`Start Date (Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`) %>% 
   spread(var,value) %>% 
   filter(`Start Date`!="")
 
