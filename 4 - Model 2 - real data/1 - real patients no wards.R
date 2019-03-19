@@ -11,7 +11,11 @@
 library(dplyr)
 library(simmer)
 library(simmer.plot)
+library(progress)
 select<-simmer::select
+library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
+load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
+
 
 
 emergency_freq <- readRDS("../Data - For Modelling/Emergency-Frequency.rds")
@@ -21,6 +25,10 @@ emergency_spells <- readRDS("../Data - For Modelling/Emergency-Spells.rds")
 elective_spells <- readRDS("../Data - For Modelling/Elective-Spells.rds")
 
 print("* loaded *")
+
+
+##base a progress bar on the emergency admissions as they're the biggest and most detailed
+pb <- progress_bar$new(format="[:bar] :percent eta: :eta",total=nrow(emergency_freq))
 
 
 ## function for emergency admission frequencies
@@ -38,9 +46,9 @@ emergency_gen <- function() {
         ##t_skip represents how long we've skipped before the current gap
         t_skip <<- next_change - last_time
         cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
-        #last_change <<- next_change
         next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
         freq_table_index <<- freq_table_index+1
+        pb$tick()
         if (freq_table_index==nrow(emergency_freq)) { return(-1) }
       }
       
@@ -51,9 +59,9 @@ emergency_gen <- function() {
       if ((tmp_gap + last_time)>next_change) {
         t_skip <<- next_change - last_time
         cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
-        #last_change <<- next_change
         next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
         freq_table_index <<- freq_table_index+1
+        pb$tick()
         #print(freq_table_index)
         if (freq_table_index==nrow(emergency_freq)) { return(-1) }
       } else {
@@ -64,6 +72,51 @@ emergency_gen <- function() {
       
     }
   }
+}
+
+
+## function to produce patients
+## will return a patient's entire row
+## presently indexed by - business day, time +/- n hours, date +/- n weeks
+## this version works but is quite slow due to the long and repeated lookups. Might be faster with data.table
+
+searchTimeWindow <- as.difftime(3,units="hours") ## two hours before and after
+searchDateWindow <- as.difftime(2,units="weeks") ## 2 weeks before and after
+
+emergency_patient <- function(idx_datetime) {
+  idx_datetime<-as.POSIXct(idx_datetime,origin="1970-01-01 00:00.00 UTC")
+  bizday<-is.bizday(idx_datetime,'Rmetrics/LONDON')
+  y2kdate<-as.Date(format(idx_datetime,"2000-%m-%d"))
+  idx_time<-(as.numeric(idx_datetime) %% 86400)
+  
+  ## Time search window - see above
+  startTsearch <- idx_time - as.numeric(searchTimeWindow,units="secs")
+  endTsearch <- idx_time + as.numeric(searchTimeWindow,units="secs")
+  
+  ## Date search window - see above
+  startDsearch <- y2kdate - searchDateWindow
+  endDsearch <- y2kdate + searchDateWindow
+  
+  output=data.frame()
+  ## need to wrap around date and time to build list of potential patients
+  for (toffset in c(-86400,0,86400)) {
+    for (doffset in c(as.difftime(-365,units="days"),0,as.difftime(365,units="days"))) {
+      tempout<-filter(emergency_spells,(`_Start_Time`>(startTsearch+toffset))&(`_Start_Time`<(endTsearch+toffset))&(`_bizday`==bizday)&(`_2KMD_Date`<(endDsearch+doffset))&(`_2KMD_Date`>(startDsearch+doffset)))
+      output<-bind_rows(output,tempout)
+      
+    }
+  }
+  patient<-sample_n(output,1)
+  ##now pick one of these at random and return it
+  ##nb some patients don't have a discharge datetime (may need correcting in base data production)
+  return(patient)
+}
+
+emergency_patient_timeout <- function(idx_datetime){
+  tmp<-emergency_patient(idx_datetime)
+  timeout<-(tmp$`_Discharge_DateTime`)-(tmp$`_SpellStart_DateTime`)
+  if (is.na(timeout)) {timeout<-5*86400}
+  return(as.numeric(timeout,units="secs"))
 }
 
 
@@ -95,7 +148,7 @@ iterate  <- function() {
 
 patient<- trajectory() %>%
   seize("bed") %>% 
-  timeout(86400*10) %>% 
+  timeout(function() {emergency_patient_timeout(now(env))}) %>% 
   release("bed")
 ## create resources
 
