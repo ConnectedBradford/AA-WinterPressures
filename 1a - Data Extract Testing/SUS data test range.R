@@ -7,7 +7,7 @@ testEachDay<-names(which(table(testAllDays$dat)>20))
 
 tallyAllDays<-testAllDays %>% group_by(dat) %>% tally()
 
-tallyEpisodeAllDAys<-episodeAllDays %>% group_by(dat) %>% tally()
+tallyEpisodeAllDAys<-spellAllDays %>% group_by(dat) %>% tally()
 
 plot(tallyEpisodeAllDAys$dat,tallyEpisodeAllDAys$n)
 
