@@ -75,8 +75,8 @@ spells<-mutate(spells,`_2KMD_Date`=as.Date(format(`_SpellStart_DateTime`,"2000-%
 
 print("* Calculated Business Days (Patient table) *")
 
-startDate <- as.POSIXct("2020-01-01 00:00:00 GMT")
-endDate <- as.POSIXct("2020-12-31 23:59:59 GMT") ## one year for now
+startDate <- as.POSIXct("2019-06-01 00:00:00 GMT")
+endDate <- as.POSIXct("2021-05-31 23:59:59 GMT") ## two years for now to show winter more clearly as the model takes a few months to wind up
 resolutionTime <- as.difftime(2,units="hours")
 searchTimeWindow <- as.difftime(3,units="hours") ## two hours before and after
 searchDateWindow <- as.difftime(2,units="weeks") ## 2 weeks before and after
