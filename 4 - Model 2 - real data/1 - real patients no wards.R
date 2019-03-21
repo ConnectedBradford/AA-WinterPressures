@@ -8,18 +8,18 @@
 ## DONE - change fixed 10 day stay to pull a real patient and use their stay
 ## TODO - add elective admissions
 
-## This is very slow because of the repeated filtering required to pull a real patient each time we want to admit one
-## Possible v2 - generate all the admission intervals in advance (create a new table of interarrival times and absolute times)
-## Then can use data.table to generate a massive join (it will be enormous!) with every possible patient for each time
-## then use something to select just one at each point (at random)
-## will be *very* memory-heavy but might be faster
+##depends on SUSv2-byepisode elective and emergency in "2" directory
+
+## Uses Rcpp as original approach is very slow because of the repeated filtering required to pull a real patient each time we want to admit one
+##  v2 - generate all the admission intervals in advance (create a new table of interarrival times and absolute times)
+
 
 library(dplyr)
 library(simmer)
 library(simmer.plot)
 library(progress)
 library(data.table)
-library(rcpp)
+library(Rcpp)
 select<-simmer::select
 library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
@@ -37,51 +37,51 @@ print("* loaded *")
 
 ##base a progress bar on the emergency admissions as they're the biggest and most detailed
 pb <- progress_bar$new(format="[:bar] :percent eta: :eta",total=nrow(emergency_freq))
-
-
-## function for emergency admission frequencies
-## needs to return inter-arrival times
-## no longer used - we will generate the table in advance
-emergency_gen <- function() {
-  last_time <- 0 ##last time we generated
-  next_change <- as.numeric(emergency_freq[1,]$dateTime) ## next rate change
-  cur_freq <- 0 ##current frequency (in "per day" units)
-  t_skip <- 0 ##time skipped due to zero frequency, or because next admission was after a rate change
-  freq_table_index <- 1 ##position in the frequency table
-  function() {
-    repeat {
-      while (cur_freq==0) {
-        ##if frequency is ever zero (true at the start), keep skipping until we hit a positive frequency
-        ##t_skip represents how long we've skipped before the current gap
-        t_skip <<- next_change - last_time
-        cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
-        next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
-        freq_table_index <<- freq_table_index+1
-        pb$tick()
-        if (freq_table_index==nrow(emergency_freq)) { return(-1) }
-      }
-      
-      ##main generator here - rates in the files are per day, assume poisson process
-      tmp_gap <- rexp(1,cur_freq/86400)+t_skip
-      
-      ## if the next admission would occur after a rate change, skip it. Take advantage of the fact Poisson processes have no memory to start a new one at the rate change (this has variable mathematical validity!)
-      if ((tmp_gap + last_time)>next_change) {
-        t_skip <<- next_change - last_time
-        cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
-        next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
-        freq_table_index <<- freq_table_index+1
-        pb$tick()
-        #print(freq_table_index)
-        if (freq_table_index==nrow(emergency_freq)) { return(-1) }
-      } else {
-        t_skip<<-0
-        last_time<<-last_time+tmp_gap
-        return(tmp_gap)
-      }
-      
-    }
-  }
-}
+# 
+# 
+# ## function for emergency admission frequencies
+# ## needs to return inter-arrival times
+# ## no longer used - we will generate the table in advance
+# emergency_gen <- function() {
+#   last_time <- 0 ##last time we generated
+#   next_change <- as.numeric(emergency_freq[1,]$dateTime) ## next rate change
+#   cur_freq <- 0 ##current frequency (in "per day" units)
+#   t_skip <- 0 ##time skipped due to zero frequency, or because next admission was after a rate change
+#   freq_table_index <- 1 ##position in the frequency table
+#   function() {
+#     repeat {
+#       while (cur_freq==0) {
+#         ##if frequency is ever zero (true at the start), keep skipping until we hit a positive frequency
+#         ##t_skip represents how long we've skipped before the current gap
+#         t_skip <<- next_change - last_time
+#         cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
+#         next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
+#         freq_table_index <<- freq_table_index+1
+#         pb$tick()
+#         if (freq_table_index==nrow(emergency_freq)) { return(-1) }
+#       }
+#       
+#       ##main generator here - rates in the files are per day, assume poisson process
+#       tmp_gap <- rexp(1,cur_freq/86400)+t_skip
+#       
+#       ## if the next admission would occur after a rate change, skip it. Take advantage of the fact Poisson processes have no memory to start a new one at the rate change (this has variable mathematical validity!)
+#       if ((tmp_gap + last_time)>next_change) {
+#         t_skip <<- next_change - last_time
+#         cur_freq <<- emergency_freq[freq_table_index,]$`_correctedN`
+#         next_change <<- as.numeric(emergency_freq[freq_table_index+1,]$dateTime)
+#         freq_table_index <<- freq_table_index+1
+#         pb$tick()
+#         #print(freq_table_index)
+#         if (freq_table_index==nrow(emergency_freq)) { return(-1) }
+#       } else {
+#         t_skip<<-0
+#         last_time<<-last_time+tmp_gap
+#         return(tmp_gap)
+#       }
+#       
+#     }
+#   }
+# }
 
 ##new version - generate a table of times for use later
 emergency_gen_table <- function() {
@@ -141,72 +141,76 @@ emergency_gen_table <- function() {
 
 searchTimeWindow <- as.difftime(3,units="hours") ## two hours before and after
 searchDateWindow <- as.difftime(2,units="weeks") ## 2 weeks before and after
-emergency_spells_DT<-data.table(emergency_spells)
+# emergency_spells_DT<-data.table(emergency_spells)
+# 
+# emergency_patient_v1 <- function(idx_datetime) {
+#   idx_datetime<-as.POSIXct(idx_datetime,origin="1970-01-01 00:00.00 UTC")
+#   bizday<-is.bizday(idx_datetime,'Rmetrics/LONDON')
+#   y2kdate<-as.Date(format(idx_datetime,"2000-%m-%d"))
+#   idx_time<-(as.numeric(idx_datetime) %% 86400)
+#   
+#   ## Time search window - see above
+#   startTsearch <- idx_time - as.numeric(searchTimeWindow,units="secs")
+#   endTsearch <- idx_time + as.numeric(searchTimeWindow,units="secs")
+#   
+#   ## Date search window - see above
+#   startDsearch <- y2kdate - searchDateWindow
+#   endDsearch <- y2kdate + searchDateWindow
+#   
+#   output=data.frame()
+#   ## need to wrap around date and time to build list of potential patients
+#   ## a brief timing test of the code suggests most of the time is spent doing the filtering. bind_rows and sample_n aren't that bad.
+#   for (toffset in c(-86400,0,86400)) {
+#     for (doffset in c(as.difftime(-365,units="days"),0,as.difftime(365,units="days"))) {
+#       tempout<-filter(emergency_spells,(`_Start_Time`>(startTsearch+toffset))&(`_Start_Time`<(endTsearch+toffset))&(`_bizday`==bizday)&(`_2KMD_Date`<(endDsearch+doffset))&(`_2KMD_Date`>(startDsearch+doffset)))
+#       #tempout<-emergency_spells_DT[between(`_Start_Time`,startTsearch+toffset,endTsearch+toffset) & between(`_2KMD_Date`,startDsearch+doffset,endDsearch+doffset) & `_bizday`==bizday]
+#       ##both very slow
+#             output<-bind_rows(output,tempout)
+#       
+#     }
+#   }
+#   patient<-sample_n(output,1)
+#   ##now pick one of these at random and return it
+#   ##nb some patients don't have a discharge datetime (may need correcting in base data production)
+#   return(patient)
+# }
 
-emergency_patient_v1 <- function(idx_datetime) {
-  idx_datetime<-as.POSIXct(idx_datetime,origin="1970-01-01 00:00.00 UTC")
-  bizday<-is.bizday(idx_datetime,'Rmetrics/LONDON')
-  y2kdate<-as.Date(format(idx_datetime,"2000-%m-%d"))
-  idx_time<-(as.numeric(idx_datetime) %% 86400)
-  
-  ## Time search window - see above
-  startTsearch <- idx_time - as.numeric(searchTimeWindow,units="secs")
-  endTsearch <- idx_time + as.numeric(searchTimeWindow,units="secs")
-  
-  ## Date search window - see above
-  startDsearch <- y2kdate - searchDateWindow
-  endDsearch <- y2kdate + searchDateWindow
-  
-  output=data.frame()
-  ## need to wrap around date and time to build list of potential patients
-  ## a brief timing test of the code suggests most of the time is spent doing the filtering. bind_rows and sample_n aren't that bad.
-  for (toffset in c(-86400,0,86400)) {
-    for (doffset in c(as.difftime(-365,units="days"),0,as.difftime(365,units="days"))) {
-      tempout<-filter(emergency_spells,(`_Start_Time`>(startTsearch+toffset))&(`_Start_Time`<(endTsearch+toffset))&(`_bizday`==bizday)&(`_2KMD_Date`<(endDsearch+doffset))&(`_2KMD_Date`>(startDsearch+doffset)))
-      #tempout<-emergency_spells_DT[between(`_Start_Time`,startTsearch+toffset,endTsearch+toffset) & between(`_2KMD_Date`,startDsearch+doffset,endDsearch+doffset) & `_bizday`==bizday]
-      ##both very slow
-            output<-bind_rows(output,tempout)
-      
-    }
-  }
-  patient<-sample_n(output,1)
-  ##now pick one of these at random and return it
-  ##nb some patients don't have a discharge datetime (may need correcting in base data production)
-  return(patient)
-}
+sourceCpp("1RcppFunctions.cpp")
 
-
-##expects emergency_spells as-is
-##emergency_gen_table needs to contain 2KMD_date, time, and bizday
 # timesdf<-emergency_gen_table()
 # timesdf<-mutate(timesdf,idx_datetime=as.POSIXct(time_at,origin="1970-01-01 00:00.00 UTC"))
 # timesdf<-mutate(timesdf,bizday=is.bizday(as.character(idx_datetime),'Rmetrics/LONDON')) ##nb needs as.character as usual to avoid BST issues
 # timesdf<-mutate(timesdf,y2kdate=as.Date(format(idx_datetime,"2000-%m-%d")))
 # timesdf<-mutate(timesdf,idx_time=(as.numeric(idx_datetime) %% 86400))
 
-sourceCpp("1RcppFunctions.cpp")
-
 
 #test<-gen_emergency_patients(timesdf,emergency_spells,as.numeric(searchTimeWindow,units="secs"),as.numeric(searchDateWindow,units="days"))
 
-emergency_patients <- function(emergency_gen_table){
+
+emergency_gen_patients <- function(emergency_table){
+  ##expects emergency_spells as-is
+  ##emergency_gen_table needs to contain 2KMD_date, time, and bizday
+   emergency_table<-mutate(emergency_table,idx_datetime=as.POSIXct(time_at,origin="1970-01-01 00:00.00 UTC"))
+   emergency_table<-mutate(emergency_table,bizday=is.bizday(as.character(idx_datetime),'Rmetrics/LONDON')) ##nb needs as.character as usual to avoid BST issues
+   emergency_table<-mutate(emergency_table,y2kdate=as.Date(format(idx_datetime,"2000-%m-%d")))
+   emergency_table<-mutate(emergency_table,idx_time=(as.numeric(idx_datetime) %% 86400))
   
+   spell_ids<-gen_emergency_patients(emergency_table,emergency_spells,as.numeric(searchTimeWindow,units="secs"),as.numeric(searchDateWindow,units="days"))
   
-  
-  
-  
+   emergency_table$spell_id<-spell_ids
+   return (emergency_table)
   
 }
 
 
 
-emergency_patient_timeout <- function(idx_datetime){
-  tmp<-emergency_patient(idx_datetime)
-  timeout<-(tmp$`_Discharge_DateTime`)-(tmp$`_SpellStart_DateTime`)
-  if (is.na(timeout)) {timeout<-5*86400}
-  return(5*86400)
-  #return(as.numeric(timeout,units="secs"))
-}
+# emergency_patient_timeout <- function(idx_datetime){
+#   #tmp<-emergency_patient(idx_datetime)
+#   #timeout<-(tmp$`_Discharge_DateTime`)-(tmp$`_SpellStart_DateTime`)
+#   #if (is.na(timeout)) {timeout<-5*86400}
+#   return(86400)
+#   #return(as.numeric(timeout,units="secs"))
+# }
 
 
 ## helper function to pull data - actually only iterate is used
@@ -214,7 +218,7 @@ consume <- function(x) {
   i <- 0
   function() {
     i <<- i + 1
-    print(x[[i]])
+    #print(x[[i]])
     x[[i]]
   }
 }
@@ -235,16 +239,37 @@ iterate  <- function() {
 ## notes - select() can take a function but seize() can't
 
 
+emergency_table<- emergency_gen_table()
+
+print("* times generated *")
+
+emergency_table<- emergency_gen_patients(emergency_table)
+
+print("* patients generated *")
+
+##not sure why spell_id needs treating differently below. Something to do with data types I think.
+emergency_table$sp_row_id<-match(emergency_table$spell_id[[1]],emergency_spells$`_SpellID`)
+
+emergency_spells$duration<-as.numeric(emergency_spells$`_Discharge_DateTime`)-as.numeric(emergency_spells$`_SpellStart_DateTime`)
+
+emergency_spells$duration[is.na(emergency_spells$duration)]<-4*86400
+##fudge 4 day stay for anyone we don't know
+
+
+
 patient<- trajectory() %>%
+#  set_attribute("gen_row_id",iterate()) %>% 
+#  set_attribute("sp_row_id",function() {as.numeric(emergency_table[get_attribute(env,"gen_row_id"),"sp_row_id"]) }) %>% 
   seize("bed") %>% 
-  timeout(function() {emergency_patient_timeout(now(env))}) %>% 
+  timeout(function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"]) }) %>% 
   release("bed")
 ## create resources
 
 env <-
   simmer("hospital") %>% 
   # add_resource(wards,capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
-  add_generator("Patient", patient, emergency_gen())
+  # add_generator("Patient", patient, emergency_table$gaps)
+  add_dataframe("Patient",patient,emergency_table,col_time="gaps",time="interarrival",col_attributes="sp_row_id")
 
 add_resource(env,"bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE)
 
@@ -256,6 +281,12 @@ env %>% run()
 
 print("* run *")
 
+test<-get_mon_resources(env)
+test$time<-as.POSIXct(test$time,origin="1970-01-01 00:00.00 UTC")
+
+
 print(plot(get_mon_resources(env),steps=TRUE))
+
+print(plot(test$time,test$server))
 
 #print(plot(get_mon_resources(env),"usage",c("5 BRI","ENT DCU BRI","19 Disch Lounge BRI","12 BRI","11 BRI","8 BRI", "23 BRI", "27 BRI","22 BRI"),items="system",steps=TRUE))
