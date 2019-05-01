@@ -71,7 +71,7 @@ firstepisodes<-filter(data,`Episode Number`=="1")
 firstepisodes$`_SpellID` <- seq.int(nrow(firstepisodes))
 
 
-basedata<-select(firstepisodes,`_SpellID`,`_TLSpellDigest`,Pkid.x,`Start Date (Hospital Provider Spell)`,`Discharge Date (From Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`,`Discharge Time (Hospital Provider Spell)`,`Admission Method (Hospital Provider Spell)`,`Year of Birth`,`Discharge Method (Hospital Provider Spell)`,`Discharge Destination (Hospital Provider Spell)`,`Patient Classification`,`_SpellStart_DateTime`,`_Discharge_DateTime`)
+basedata<-dplyr::select(firstepisodes,`_SpellID`,`_TLSpellDigest`,Pkid.x,Sex,`Start Date (Hospital Provider Spell)`,`Discharge Date (From Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`,`Discharge Time (Hospital Provider Spell)`,`Admission Method (Hospital Provider Spell)`,`Year of Birth`,`Discharge Method (Hospital Provider Spell)`,`Discharge Destination (Hospital Provider Spell)`,`Patient Classification`,`_SpellStart_DateTime`,`_Discharge_DateTime`)
 print(unique(basedata$`Admission Method (Hospital Provider Spell)`))
 ## sense check above
 ## elective if first character is a 1
@@ -86,7 +86,7 @@ print("* Base table created *")
 ## big change here from TL3 - repeated data is now EPISODE based rather than WARD STAY based. Segments
 
 
-repeateddata <- select(data,"Pkid.x","_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","Main Specialty Code","Treatment Function Code","Primary Procedure (OPCS)","Diagnosis Primary (ICD)","Primary Procedure Date (OPCS)","_SpellStart_DateTime","_Discharge_DateTime")
+repeateddata <- dplyr::select(data,"Pkid.x","_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","Main Specialty Code","Treatment Function Code","Primary Procedure (OPCS)","Diagnosis Primary (ICD)","Primary Procedure Date (OPCS)","_SpellStart_DateTime","_Discharge_DateTime","Start Date (Consultant Episode)","Start Time (Episode)","End Date (Consultant Episode)","End Time (Episode)")
 
 
 
@@ -95,8 +95,11 @@ repeateddata <- select(data,"Pkid.x","_TLSpellDigest","Episode Number","Last Epi
 repeateddata$`_EpisodeStart_DateTime` <- as.POSIXct(strptime(paste0(repeateddata$`Start Date (Consultant Episode)`," ",repeateddata$`Start Time (Episode)`),format="%Y%m%d %H:%M:%S"))
 repeateddata$`_EpisodeEnd_DateTime` <- as.POSIXct(strptime(paste0(repeateddata$`End Date (Consultant Episode)`," ",repeateddata$`End Time (Episode)`),format="%Y%m%d %H:%M:%S"))
 
-repeateddata$`_EpisodeStart_Offset` <- repeateddata$`_EpisodeStart_DateTime` - repeateddata$`_SpellStart_DateTime`
-repeateddata$`_EpisodeEnd_Offset` <- repeateddata$`_EpisodeEnd_DateTime` - repeateddata$`_SpellStart_DateTime`
+#repeateddata$`_EpisodeStart_Offset` <- repeateddata$`_EpisodeStart_DateTime` - repeateddata$`_SpellStart_DateTime`
+repeateddata$`_EpisodeStart_Offset` <- difftime(repeateddata$`_EpisodeStart_DateTime`,repeateddata$`_SpellStart_DateTime`,units="secs")
+
+#repeateddata$`_EpisodeEnd_Offset` <- repeateddata$`_EpisodeEnd_DateTime` - repeateddata$`_SpellStart_DateTime`
+repeateddata$`_EpisodeEnd_Offset` <- difftime(repeateddata$`_EpisodeEnd_DateTime`,repeateddata$`_SpellStart_DateTime`,units="secs")
 
 ##account for the fact that ward stays can stretch over episodes so we need whatever's shortest of episode or ward stay
 ## need pmax,pmin or we get the min/max of the entire dataset
@@ -105,7 +108,7 @@ repeateddata$`_EpisodeEnd_Offset` <- repeateddata$`_EpisodeEnd_DateTime` - repea
 print("* Repeated table created *")
 
 critcaredata <- filter(data,`Critical Care Start Date 1`!="") %>% 
-  select("Pkid.x","_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","Start Date (Hospital Provider Spell)","Start Time (Hospital Provider Spell)","Start Date (Consultant Episode)","Start Time (Episode)","End Date (Consultant Episode)","End Time (Episode)","Main Specialty Code","Treatment Function Code","Primary Procedure (OPCS)","Diagnosis Primary (ICD)","Primary Procedure Date (OPCS)","_SpellStart_DateTime","_Discharge_DateTime",starts_with("Critical Care") ) %>% 
+  dplyr::select("Pkid.x","_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","Start Date (Hospital Provider Spell)","Start Time (Hospital Provider Spell)","Start Date (Consultant Episode)","Start Time (Episode)","End Date (Consultant Episode)","End Time (Episode)","Main Specialty Code","Treatment Function Code","Primary Procedure (OPCS)","Diagnosis Primary (ICD)","Primary Procedure Date (OPCS)","_SpellStart_DateTime","_Discharge_DateTime",starts_with("Critical Care") ) %>% 
   gather(var,value,matches("\\d$")) %>%
   ## all the ones that end in a digit
   separate(var,c("var","ccstay"),sep="[ ](?=[^ ]+$)") %>% 
