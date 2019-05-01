@@ -16,7 +16,7 @@
 
 library(dplyr)
 library(simmer)
-library(simmer.plot)
+#library(simmer.plot)
 library(progress)
 library(data.table)
 library(Rcpp)
@@ -31,6 +31,15 @@ elective_freq <- readRDS("../Data - For Modelling/Elective-Frequency.rds")
 
 emergency_spells <- readRDS("../Data - For Modelling/Emergency-Spells.rds")
 elective_spells <- readRDS("../Data - For Modelling/Elective-Spells.rds")
+
+
+
+emergency_spells$duration<-as.numeric(emergency_spells$`_Discharge_DateTime`)-as.numeric(emergency_spells$`_SpellStart_DateTime`)
+
+emergency_spells$duration[is.na(emergency_spells$duration)]<-4*86400
+##fudge 4 day stay for anyone we don't know
+
+
 
 print("* loaded *")
 
@@ -237,56 +246,116 @@ iterate  <- function() {
 ## patient trajectory
 
 ## notes - select() can take a function but seize() can't
+# 
+# 
+# emergency_table<- emergency_gen_table()
+# 
+# print("* times generated *")
+# 
+# emergency_table<- emergency_gen_patients(emergency_table)
+# 
+# print("* patients generated *")
+# 
+# ##not sure why spell_id needs treating differently below. Something to do with data types I think.
+# emergency_table$sp_row_id<-match(emergency_table$spell_id[[1]],emergency_spells$`_SpellID`)
+# 
 
-
-emergency_table<- emergency_gen_table()
-
-print("* times generated *")
-
-emergency_table<- emergency_gen_patients(emergency_table)
-
-print("* patients generated *")
-
-##not sure why spell_id needs treating differently below. Something to do with data types I think.
-emergency_table$sp_row_id<-match(emergency_table$spell_id[[1]],emergency_spells$`_SpellID`)
-
-emergency_spells$duration<-as.numeric(emergency_spells$`_Discharge_DateTime`)-as.numeric(emergency_spells$`_SpellStart_DateTime`)
-
-emergency_spells$duration[is.na(emergency_spells$duration)]<-4*86400
-##fudge 4 day stay for anyone we don't know
-
-
-
-patient<- trajectory() %>%
-#  set_attribute("gen_row_id",iterate()) %>% 
-#  set_attribute("sp_row_id",function() {as.numeric(emergency_table[get_attribute(env,"gen_row_id"),"sp_row_id"]) }) %>% 
-  seize("bed") %>% 
-  timeout(function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"]) }) %>% 
-  release("bed")
-## create resources
-
-env <-
-  simmer("hospital") %>% 
-  # add_resource(wards,capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
-  # add_generator("Patient", patient, emergency_table$gaps)
-  add_dataframe("Patient",patient,emergency_table,col_time="gaps",time="interarrival",col_attributes="sp_row_id")
-
-add_resource(env,"bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE)
-
-
-print("* created *")
-
-env %>% run()
-
-
-print("* run *")
-
-test<-get_mon_resources(env)
-test$time<-as.POSIXct(test$time,origin="1970-01-01 00:00.00 UTC")
-
-
-print(plot(get_mon_resources(env),steps=TRUE))
-
-print(plot(test$time,test$server))
+## Single run - now removed as we're doing multiple
+# 
+# 
+# patient<- trajectory() %>%
+# #  set_attribute("gen_row_id",iterate()) %>% 
+# #  set_attribute("sp_row_id",function() {as.numeric(emergency_table[get_attribute(env,"gen_row_id"),"sp_row_id"]) }) %>% 
+#   seize("bed") %>% 
+#   timeout(function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"]) }) %>% 
+#   release("bed")
+# ## create resources
+# 
+# env <-
+#   simmer("hospital") %>% 
+#   # add_resource(wards,capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
+#   # add_generator("Patient", patient, emergency_table$gaps)
+#   add_dataframe("Patient",patient,emergency_table,col_time="gaps",time="interarrival",col_attributes="sp_row_id") %>% 
+#   add_resource("bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE)
+# 
+# 
+# print("* created *")
+# 
+# env %>% run()
+# 
+# 
+# print("* run *")
+# 
+# test<-get_mon_resources(env)
+# test$time<-as.POSIXct(test$time,origin="1970-01-01 00:00.00 UTC")
+# 
+# 
+# print(plot(get_mon_resources(env),steps=TRUE))
+# 
+# print(plot(test$time,test$server,type="l"))
 
 #print(plot(get_mon_resources(env),"usage",c("5 BRI","ENT DCU BRI","19 Disch Lounge BRI","12 BRI","11 BRI","8 BRI", "23 BRI", "27 BRI","22 BRI"),items="system",steps=TRUE))
+
+
+simmer_wrapper <- function(i) {
+  
+  
+  emergency_table<- emergency_gen_table()
+  
+  print("* times generated *")
+  
+  emergency_table<- emergency_gen_patients(emergency_table)
+  
+  print(nrow(emergency_table))
+  
+  print("* patients generated *")
+  
+  ##not sure why spell_id needs treating differently below. Something to do with data types I think.
+  emergency_table$sp_row_id<-match(emergency_table$spell_id[[1]],emergency_spells$`_SpellID`)
+  
+  env<-simmer("hospital")
+  
+  
+  ##nb patient must be in scope for the call to get_attribute
+  patient<- trajectory() %>%
+    #  set_attribute("gen_row_id",iterate()) %>% 
+    #  set_attribute("sp_row_id",function() {as.numeric(emergency_table[get_attribute(env,"gen_row_id"),"sp_row_id"]) }) %>% 
+    seize("bed") %>% 
+    timeout(function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"]) }) %>% 
+    release("bed")
+  
+   env %>% 
+    # add_resource(wards,capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
+    # add_generator("Patient", patient, emergency_table$gaps)
+    add_dataframe("Patient",patient,emergency_table,col_time="gaps",time="interarrival",col_attributes="sp_row_id") %>% 
+    add_resource("bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
+      run() %>% 
+      wrap()
+  
+}
+
+library(parallel)
+library(pbmcapply)
+##nb not parallel on windows because of lack of fork()
+##parallelsugar doesn't work properly because environment isn't copied correctly
+
+
+print("* Simulation started (no output) *")
+
+envs<-pbmclapply(1:10,simmer_wrapper,mc.cores=8)
+##something very odd happening here with hospital capacity sat at around 200 and no obvious long tail on discharge
+##is there a fixed duration occurring? (answer: yes) - because patient wasn't in scope so it was reusing the old env
+
+print("* Simulation finished *")
+
+resources<-get_mon_resources(envs)
+
+resources2<-resources
+
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+plot(resources2$time,resources2$server,col=resources2$replication,pch=".")
+
+
+library(ggplot2)
+ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
