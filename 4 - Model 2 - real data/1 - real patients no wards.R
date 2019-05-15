@@ -320,6 +320,7 @@ simmer_wrapper <- function(i) {
   patient<- trajectory() %>%
     #  set_attribute("gen_row_id",iterate()) %>% 
     #  set_attribute("sp_row_id",function() {as.numeric(emergency_table[get_attribute(env,"gen_row_id"),"sp_row_id"]) }) %>% 
+    ## above not required as we put sp_row_id into the environment using add_dataframe below
     seize("bed") %>% 
     timeout(function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"]) }) %>% 
     release("bed")
