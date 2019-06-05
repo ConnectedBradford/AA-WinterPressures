@@ -43,10 +43,16 @@ emergency_spells$duration<-as.numeric(emergency_spells$`_Discharge_DateTime`)-as
 emergency_spells$duration[is.na(emergency_spells$duration)]<-4*86400
 ##fudge 4 day stay for anyone we don't know
 
+elective_spells$duration<-as.numeric(elective_spells$`_Discharge_DateTime`)-as.numeric(elective_spells$`_SpellStart_DateTime`)
+
+elective_spells$duration[is.na(elective_spells$duration)]<-4*86400
+##fudge 4 day stay for anyone we don't know
+
+
 
 ## truncate for coding purposes
 emergency_freq<-head(emergency_freq,20)
-
+elective_freq<-head(elective_freq,20)
 
 
 print("* loaded *")
