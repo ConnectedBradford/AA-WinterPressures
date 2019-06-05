@@ -40,6 +40,7 @@ library(data.table)
 # result <- dbSendQuery(con,"SELECT * FROM [proj_TomLawton].[dbo].[tbl_SUS_AdmittedPatientCare_Finished] WHERE [Ward Code 1]!='' AND [Patient Classification]='1' AND ([Site Code (of Treatment) At Episode Start Date]='RAE01' OR [Site Code (of Treatment) at Episode End Date]='RAE01')")
 # 
 # data <- dbFetch(result)
+# data from stage 1
 data<-readRDS("../Data - Generated/SUSv2-byEpisode-basedata.rds")
 spells<-data
 print("* Loaded *")

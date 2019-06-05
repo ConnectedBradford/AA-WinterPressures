@@ -1,0 +1,3 @@
+These files are generated in stage 2
+
+Day cases (and same-day emergency stays) should already be removed (but will appear in the repeateddata, so use the spells from here)
