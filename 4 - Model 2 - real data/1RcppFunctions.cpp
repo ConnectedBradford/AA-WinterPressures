@@ -87,5 +87,84 @@ DataFrame gen_emergency_patients(DataFrame emergency_gen_table, DataFrame emerge
  return DataFrame::create(_["spell_id"]=gen_spell_ids);
 
 }
-            
+ 
+ 
+ // [[Rcpp::export]] 
+ DataFrame gen_elective_patients(DataFrame elective_gen_table, DataFrame elective_spells,  int searchDateWindow) {
+    
+    //searchDateWindow in days
+    
+    //returns a dataframe of spell_ids that can be put back into the elective_gen_table in R (not a vector as it behaves oddly)
+    
+    // remember everything is zero-indexed here!
+    
+    IntegerVector gen_spell_ids = elective_gen_table["spell_id"];
+    IntegerVector gen_y2kdate = elective_gen_table["y2kdate"]; // days since index date (not seconds)
+    LogicalVector gen_bizday = elective_gen_table["bizday"];
+    
+    IntegerVector sp_spell_ids = elective_spells["_SpellID"];
+    LogicalVector sp_bizday = elective_spells["_bizday"];
+    IntegerVector sp_y2kdate = elective_spells["_2KMD_Date"];
+    IntegerVector sp_time = elective_spells["_Start_Time"];
+    
+    int n_spells = elective_spells.nrow()-1;
+    int n_gens = elective_gen_table.nrow()-1;
+    
+    int rnd_spells [n_spells];
+    
+    for (int gen_i=0;gen_i<=n_gens;gen_i++){
+       //iterate over each gen slot
+       
+       //Fisher-Yates inside-out to produce random ordering of spells
+       for(int i=0;i<=n_spells;i++) {
+          int rnd=unif_rand() * i;
+          rnd_spells[i] = rnd_spells[rnd];
+          rnd_spells[rnd] = i;
+       }
+       
+       int startDsearch = gen_y2kdate[gen_i] - searchDateWindow;
+       int endDsearch = gen_y2kdate[gen_i] + searchDateWindow;
+       
+       
+       for (int sp_i=0;sp_i<=n_spells;sp_i++){
+          //find the first spell that is a match (order by rnd_spells)
+          //rnd_spells[sp_i] is the index of the spell we're looking at
+          //gen_i is the index of the one we're generating
+          
+          int sp_rnd_i=rnd_spells[sp_i];
+          
+          if (sp_bizday[sp_rnd_i]==gen_bizday[gen_i]) { //easiest check here
+             if ((sp_y2kdate[sp_rnd_i]>startDsearch && sp_y2kdate[sp_rnd_i]<endDsearch) || ((sp_y2kdate[sp_rnd_i]+365)>startDsearch && (sp_y2kdate[sp_rnd_i]+365)<endDsearch) || ((sp_y2kdate[sp_rnd_i]-365)>startDsearch && (sp_y2kdate[sp_rnd_i]-365)<endDsearch)) {
+                // we have a match - copy it and go on to the next generated episode
+                gen_spell_ids[gen_i]=sp_spell_ids[sp_rnd_i];
+                break;
+                
+                
+             }
+             
+             
+             
+             
+          }
+          
+          
+          
+       }
+       
+    }
+    
+    // random debug rubbish here:
+    // gen_spell_ids[1]=searchDateWindow;
+    // gen_spell_ids[0]=searchTimeWindow;
+    // gen_spell_ids[3]=gen_y2kdate[1];
+    // gen_spell_ids[4]=gen_time[2];
+    // gen_spell_ids[5]=sp_y2kdate[1];
+    // gen_spell_ids[6]=sp_spell_ids[1];
+    // gen_spell_ids[7]=rnd_spells[24];
+    // gen_spell_ids[8]=rnd_spells[25];
+    // gen_spell_ids[9]=n_gens;
+    return DataFrame::create(_["spell_id"]=gen_spell_ids);
+    
+ }
+
  
