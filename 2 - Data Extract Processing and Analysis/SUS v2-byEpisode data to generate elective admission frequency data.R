@@ -49,22 +49,10 @@ print("* Loaded *")
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
 spells<-filter(data,`_Elective`==TRUE)
 
-## remove day cases? (patient classification 1 includes emergencies who left the same day)
-spells<-filter(spells,`Start Date (Hospital Provider Spell)`!=`Discharge Date (From Hospital Provider Spell)`)
+
+source("../2 - Data Extract Processing and Analysis/SUS v2-byEpisode Filters.R")
 
 
-##A few options here - comment out!
-## 21 = A&E - expect flatter curve. 22=HP - expect very peaky (something weird there!). 
-#spells<-filter(spells,`Admission Method (Hospital Provider Spell)`=="28") 
-
-
-spells<-filter(spells,`Admission Method (Hospital Provider Spell)`!="82") #baby born here
-spells<-filter(spells,`Admission Method (Hospital Provider Spell)`!="83") #baby born outside hospital
-
-#spells<-filter(spells,`Year of Birth`<(year(`_SpellStart_DateTime`)-16)) #remove kids - needs altering to check specific dates
-
-spells<-filter(spells,`Admission Method (Hospital Provider Spell)`!="31") #maternity antepartum
-spells<-filter(spells,`Admission Method (Hospital Provider Spell)`!="32") #maternity postpartum
 #spells<-data
 ## bizarrely need to have as.character in there, or BST dates shortly after midnight get put back to the previous day
 spells<-mutate(spells,`_bizday`=is.bizday(as.character(`_SpellStart_DateTime`),'Rmetrics/LONDON'),`_Start_Time`=(as.numeric(`_SpellStart_DateTime`) %% 86400))
@@ -75,8 +63,10 @@ spells<-mutate(spells,`_2KMD_Date`=as.Date(format(`_SpellStart_DateTime`,"2000-%
 
 print("* Calculated Business Days (Patient table) *")
 
-startDate <- as.POSIXct("2020-01-01 00:00:00 GMT")
-endDate <- as.POSIXct("2020-12-31 23:59:59 GMT") ## one year for now
+
+startDate <- as.POSIXct("2019-06-01 00:00:00 GMT")
+endDate <- as.POSIXct("2021-05-31 23:59:59 GMT") ## two years for now to show winter more clearly as the model takes a few months to wind up
+
 resolutionTime <- as.difftime(24,units="hours")
 #searchTimeWindow <- as.difftime(12,units="hours") ## two hours before and after
 searchDateWindow <- as.difftime(2,units="weeks") ## 2 weeks before and after
