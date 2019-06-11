@@ -171,8 +171,8 @@ combined<-
     `_Elective`==FALSE & ((`Treatment Function Code`>=211 & `Treatment Function Code`<=291) | `Treatment Function Code`==171| `Treatment Function Code`==420| `Treatment Function Code`==321) ~ 200,
     
     
-    ## 0 = Generic Emergency code
-    `_Elective`==FALSE ~ 0,
+    ## 999 = Generic Emergency code
+    `_Elective`==FALSE ~ 999,
     
     
     
@@ -267,12 +267,15 @@ combined$pretraj<-NA
 
 ##10002=MAU
 ##10001=SAU
+##10003=paeds
 combined<-
   mutate(combined,pretraj = case_when(
     
     `Episode Number`==1 & (traj==1 | traj==2 | traj==9  | traj==11 | traj==99) ~ 10001,
     
     `Episode Number`==1 & (traj>=100 & traj <=199) ~ 10002
+    
+    `Episode Number`==1 & traj==200 ~ 10003
     
   ))
 
