@@ -1,21 +1,7 @@
 
 ## TL - analyse processed SUS (v2) data to add trajectory data to each episode
 
-## no work done on this yet - just a copy of the emergency admission frequency generator
-## will need to use repeateddata and modify it there
-
-# 
-# Admission Method
-# 
-# 11 = very odd, happens every day ("waiting list")
-# 12/13 look more sensible
-# 
-# Emergency
-# 21 = A&E, looks good
-# 22 = GP - very odd weekend spikes around end Sep/start Oct and then at Christmas
-# 
-# 28 = only appears relatively recently in data??
-#   
+##TODO - add critical care linking at bottom
   
 
 # library(DBI)
@@ -283,6 +269,26 @@ print("* Added Trajectories *")
 
 saveRDS(combined,"../Data - For Modelling/Both-Episodes.rds")
 
+print("* Saved Trajectories *")
+
+emergency_spells <- readRDS("../Data - For Modelling/Emergency-Spells.rds")
+emergency_Spells_bak<-emergency_spells
+elective_spells <- readRDS("../Data - For Modelling/Elective-Spells.rds")
+
+##TODO - add critical care spells here for linking
+
+print("* Loaded Spells *")
+
+emergency_spells$ep1_row_id<-match(paste0(emergency_spells$`_SpellID`,"1"),paste0(combined$`_SpellID`,combined$`Episode Number`))
+elective_spells$ep1_row_id<-match(paste0(elective_spells$`_SpellID`,"1"),paste0(combined$`_SpellID`,combined$`Episode Number`))
+
+combined$epN_row_id<-match(paste0(combined$`_SpellID`,combined$`Episode Number`+1),paste0(combined$`_SpellID`,combined$`Episode Number`))
+
+print("* Linked-List Created *")
+
+saveRDS(combined,"../Data - For Modelling/Both-Episodes-Linked.rds")
+saveRDS(emergency_spells,"../Data - For Modelling/Emergency-Spells-Linked.rds")
+saveRDS(elective_spells,"../Data - For Modelling/Elective-Spells-Linked.rds")
 
 print("* Finished *")
 
