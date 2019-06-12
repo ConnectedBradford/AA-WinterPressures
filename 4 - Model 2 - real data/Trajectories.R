@@ -57,8 +57,8 @@ traj_nxt[[x]]<-x
 
 ## 1 - Emergency Gen Surgical
 x<-1
-traj_pr1[[x]]<-c("8","11")
-traj_pr2[[x]]<-c("20","21","12","26")
+traj_pr1[[x]]<-c("8","11","21")
+traj_pr2[[x]]<-c("20","12","26")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -284,86 +284,205 @@ traj_nxt[[x]]<-x
 
  
 # ## 1001 = Elective Gen Surgical
-# `_Elective`==TRUE & (`Treatment Function Code`==100 | `Treatment Function Code`==104| `Treatment Function Code`==106) ~ 1001,
-# 
+
+x<-1001
+traj_pr1[[x]]<-c("8","11","21")
+traj_pr2[[x]]<-c("20","12","26")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1002 = Elective Vascular
-# `_Elective`==TRUE & (`Treatment Function Code`==107) ~ 1002,
-# 
+x<-1002
+traj_pr1[[x]]<-c("26")
+traj_pr2[[x]]<-c("21","20","8","11","27","28")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1003 = Elective Ortho
-# `_Elective`==TRUE & (`Treatment Function Code`==110) ~ 1003,
-# 
+x<-1003
+traj_pr1[[x]]<-c("28")
+traj_pr2[[x]]<-c("27","26")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1004 = Elective ENT
-# `_Elective`==TRUE & (`Treatment Function Code`==120) ~ 1004,
-# 
+x<-1004
+traj_pr1[[x]]<-c("18","18Esc")
+traj_pr2[[x]]<-c("27")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1005 = Elective MaxFax
-# `_Elective`==TRUE & (`Treatment Function Code`==140|`Treatment Function Code`==144) ~ 1005,
-# 
+x<-1005
+traj_pr1[[x]]<-c("18","18Esc")
+traj_pr2[[x]]<-c("27")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1006 = Elective Plastics
-# `_Elective`==TRUE & (`Treatment Function Code`==160) ~ 1006,
-# 
+x<-1006
+traj_pr1[[x]]<-c("27")
+traj_pr2[[x]]<-c("28")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1007 = Elective Gynae
-# `_Elective`==TRUE & (`Treatment Function Code`==502) ~ 1007,
-# 
+x<-1007
+traj_pr1[[x]]<-c("12","12Esc")
+traj_pr2[[x]]<-c("21","20","8","11","27","28")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1008 = Elective Urology
-# `_Elective`==TRUE & (`Treatment Function Code`==101) ~ 1008,
-# 
+x<-1008
+traj_pr1[[x]]<-c("14")
+traj_pr2[[x]]<-c("20","21","12","26")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1009 = Elective Breast
-# `_Elective`==TRUE & (`Treatment Function Code`==103) ~ 1009,
-# 
+x<-1009
+traj_pr1[[x]]<-c("12","12Esc")
+traj_pr2[[x]]<-c("21","20","8","11","27","28")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1010 = Elective Ophth
-# `_Elective`==TRUE & (`Treatment Function Code`==130) ~ 1010,
-# 
+x<-1010
+traj_pr1[[x]]<-c("18","18Esc")
+traj_pr2[[x]]<-c("27")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1011 = Elective Pain
-# `_Elective`==TRUE & (`Treatment Function Code`==191) ~ 1011,
-# 
-# 
-# 
-# 
+x<-1011
+traj_pr1[[x]]<-c("8","11")
+traj_pr2[[x]]<-c("20","12","26")
+traj_pr3[[x]]<-any_surgical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1100 = Elective Gen Medicine
-# `_Elective`==TRUE & (`Treatment Function Code`==300) ~ 1100,
-# 
+x<-1100
+traj_pr1[[x]]<-c("9","ACU","CDU")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1101 = Elective Gastro/Hepatology
-# `_Elective`==TRUE & (`Treatment Function Code`==301|`Treatment Function Code`==306) ~ 1101,
-# 
+x<-1101
+traj_pr1[[x]]<-c("26","11","8")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1102 = Elective Haem
-# `_Elective`==TRUE & (`Treatment Function Code`==303|`Treatment Function Code`==309) ~ 1102,
-# 
+x<-1102
+traj_pr1[[x]]<-c("33")
+traj_pr2[[x]]<-c("24","17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
 # ## 1103 = Elective Cardiology
-# `_Elective`==TRUE & (`Treatment Function Code`==320) ~ 1103,
+x<-1103
+traj_pr1[[x]]<-c("22")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
 # 
 # ## 1104 = Elective Respiratory
-# `_Elective`==TRUE & (`Treatment Function Code`==340) ~ 1104,
-# 
-# ## 1105 = Elective Oncology
-# `_Elective`==TRUE & (`Treatment Function Code`==370 | `Treatment Function Code`==503 | `Treatment Function Code`==800) ~ 1105,
-# 
-# ## 1106 = Elective Neurology
-# `_Elective`==TRUE & (`Treatment Function Code`==400|`Treatment Function Code`==328|`Treatment Function Code`==329) ~ 1106,
-# 
-# ## 1107 = Elective Rheumatology
-# `_Elective`==TRUE & (`Treatment Function Code`==410) ~ 1107,
-# 
-# ## 1108 = Elective Geriatrics
-# `_Elective`==TRUE & (`Treatment Function Code`==430|`Treatment Function Code`==314) ~ 1108,
-# 
-# ## 1109 = Elective Endocrine
-# `_Elective`==TRUE & (`Treatment Function Code`==302) ~ 1109,
-# 
-# ## 1110 = Elective ID
-# `_Elective`==TRUE & (`Treatment Function Code`==350) ~ 1110,
-# 
-# ## 1111 = Elective Renal
-# `_Elective`==TRUE & (`Treatment Function Code`==361) ~ 1111,
-# 
-# 
-# ## 1200 = Elective Paediatrics
-# `_Elective`==TRUE & (`Treatment Function Code`==171|`Treatment Function Code`==321|`Treatment Function Code`==420|(`Treatment Function Code`>=211 & `Treatment Function Code`<=291)) ~ 1200,
-# 
-# 
-# ## 1000 = Generic Elective code
-# `_Elective`==TRUE ~ 1000,
-# 
-# ))
-# 
+x<-1104
+traj_pr1[[x]]<-c("23")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
 
-#     
+# ## 1105 = Elective Oncology
+x<-1105
+traj_pr1[[x]]<-c("24")
+traj_pr2[[x]]<-c("33","17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1106 = Elective Neurology
+x<-1106
+traj_pr1[[x]]<-c("6")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1107 = Elective Rheumatology
+# not sure about this one
+x<-1106
+traj_pr1[[x]]<-c("F5","F6")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1108 = Elective Geriatrics
+x<-1108
+traj_pr1[[x]]<-c("31","29")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-7*24*3600 #move on after a week - could change?
+traj_nxt[[x]]<-111
+
+
+# ## 1109 = Elective Endocrine
+x<-1109
+traj_pr1[[x]]<-c("9","ACU","CDU")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1110 = Elective ID
+x<-1110
+traj_pr1[[x]]<-c("7")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1111 = Elective Renal
+x<-1111
+traj_pr1[[x]]<-c("15")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1200 = Elective Paediatrics
+x<-1200
+traj_pr1[[x]]<-c("30")
+traj_pr2[[x]]<-c("32")
+traj_pr3[[x]]<-c("30","32")
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
+# ## 1000 = Generic Elective code
+x<-1000
+traj_pr1[[x]]<-c("8","11","21")
+traj_pr2[[x]]<-any_surgical
+traj_pr3[[x]]<-any_medical
+traj_dur[[x]]<-Inf
+traj_nxt[[x]]<-x
+
