@@ -273,18 +273,18 @@ combined<-
     
     `Episode Number`==1 & (traj==1 | traj==2 | traj==9  | traj==11 | traj==99) ~ 10001,
     
-    `Episode Number`==1 & (traj>=100 & traj <=199) ~ 10002
+    `Episode Number`==1 & (traj>=100 & traj <=199) ~ 10002,
     
     `Episode Number`==1 & traj==200 ~ 10003
     
   ))
 
-
+print("* Added Trajectories *")
 
 saveRDS(combined,"../Data - For Modelling/Both-Episodes.rds")
 
 
-
+print("* Finished *")
 
 
 
