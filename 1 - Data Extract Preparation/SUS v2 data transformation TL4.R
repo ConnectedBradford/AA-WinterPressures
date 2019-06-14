@@ -34,6 +34,9 @@ min<-base::min
 # data <- dbFetch(result)
 data<-readRDS("../Data Extracts/SUSv2_all.rds")
 
+
+## to remove blank columns - test2<-test[!sapply(test,function(x) all(format(x)==""))]
+
 print("* Loaded *")
 
 data$`Episode Number`<-as.numeric(data$`Episode Number`)
