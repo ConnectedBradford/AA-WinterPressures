@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+*.RData
+.Ruserdata
+Data - Generated
+Data Extracts - interesting
+Data Extracts - Output
+Data Extracts
+Data - For Modelling
+*.rds
+*.zip
