@@ -84,8 +84,10 @@ patient<- trajectory() %>%
 
 ## create resources
 
+csvmon<-monitor_csv()
+
 env <-
-  simmer("hospital") %>% 
+  simmer("hospital",mon=csvmon) %>% 
   # add_resource(wards,capacity=Inf,queue_size=0,queue_size_strict=TRUE) %>% 
   add_resource("bed",capacity=Inf) %>% 
   add_generator("Patient", patient, at(patients$at), mon=2)
