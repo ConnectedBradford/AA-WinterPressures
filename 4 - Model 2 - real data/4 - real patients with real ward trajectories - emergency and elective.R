@@ -18,6 +18,8 @@
 
 
 set.seed(12346)
+this.dir <-dirname(parent.frame(2)$ofile)
+setwd(this.dir)
 
 library(dplyr)
 library(simmer)
