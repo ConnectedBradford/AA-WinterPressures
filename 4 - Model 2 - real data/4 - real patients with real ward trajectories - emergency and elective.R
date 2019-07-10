@@ -32,6 +32,8 @@ library(timeDate)
 library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
 
+#source("mclapply.hack.R")
+
 
 ## files generated in step 2. Need to ensure dates match up with the two generators!
 emergency_freq <- readRDS("../Data - For Modelling/Emergency-Frequency.rds")
@@ -63,8 +65,8 @@ source("Wards.R")
 
 
 ## truncate for coding purposes
-#emergency_freq<-head(emergency_freq,200)
-#elective_freq<-head(elective_freq,10)
+#emergency_freq<-head(emergency_freq,20)
+#elective_freq<-head(elective_freq,2)
 
 
 
@@ -238,8 +240,8 @@ iterate  <- function() {
 
 simmer_wrapper <- function(i) {
   
-  
-  
+  load_rmetrics_calendars(2000:2022) ##loaded again as the lack of Windows fork() means it's not copied
+  sourceCpp("1RcppFunctions.cpp")
   emergency_table<- emergency_gen_table()
   
   elective_table<- elective_gen_table()
@@ -397,24 +399,34 @@ simmer_wrapper <- function(i) {
      
     env %>% 
      run(until=1622312575	) %>% 
-      wrap()
+     wrap()
   
 }
 
-library(parallel)
-library(pbmcapply)
+#library(parallel)
+#library(pbmcapply)
 ##nb not parallel on windows because of lack of fork()
 ##parallelsugar doesn't work properly because environment isn't copied correctly
-
+##mclapply.hack.R doesn't work for same reason
 
 print("* Simulation started (no output) *")
 
-#envs<-pbmclapply(1:10,simmer_wrapper,mc.cores=8)
+#envs<-mclapply(1:4,simmer_wrapper),mc.cores=8)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 ##something very odd happening here with hospital capacity sat at around 200 and no obvious long tail on discharge
 ##is there a fixed duration occurring? (answer: yes) - because patient wasn't in scope so it was reusing the old env
 
-envs<-simmer_wrapper(1)
+#envs<-simmer_wrapper(1)
+
+library("doParallel")
+registerDoParallel(cores=8)
+
+trials<-4
+envs <- foreach(icount(trials), .combine=c, .noexport=c("gen_emergency_patients","gen_elective_patients"),.export=c("progress_bar"), .packages=c("dplyr","bizdays","Rcpp","simmer"), .verbose=TRUE) %dopar% {
+ simmer_wrapper(1)
+}
+
+#nb if .combine=cbind then you get 17 identical replications per trial
 
 print("* Simulation finished *")
 
@@ -426,8 +438,9 @@ resources2<-filter(resources,resource=="23")
 
 resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 
-plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch=".")
+#plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch=".")
 
+ggplot(resources2,aes(time,server,colour=replication)) + geom_line()
 
-library(ggplot2)
-ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#library(ggplot2)
+#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
