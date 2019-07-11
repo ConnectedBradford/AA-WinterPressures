@@ -1,0 +1,37 @@
+Description of trajectories - planned
+
+ emergency_patient
+  - set all the attributes
+  - set prio to 1
+  - select best ward based on current priority (4=all wards in hospital)
+  - try to seize best ward
+   - if failed, increase prio by 1 and try again
+   - if prio is 4 then there are no beds - PANIC (currently, reset prio to 1 and try again in an hour)
+  - seize "bed"
+  - join common_patient
+  
+ elective_patient
+  - set all the attributes
+  - set prio to 1
+  - select prio 1 ward
+  - try to seize best ward
+   - if failed then follow elective backoff policy (likely try again in 2 weeks, minus a few minutes to represent priority), and roll back
+  - seize "bed"
+  - join common_patient
+  
+  
+common_patient (nb only come here if you have a bed! don't use for handle_unfinished when wards close)
+ - start at prio 1
+ - is current ward on the list for current priority?
+  - if so, skip to timeout
+ - select best ward based on current priority (no need to look at 4, as we are already in a bed at this point)
+ - try to seize best ward
+  - if failed, increase prio by 1 and try again
+  - if prio is 3 then just stay in present bed (skip to timeout)
+ - once seized, drop old bed
+ - set current ward
+ - timeout to either the end of the trajectory or episode
+ - adjust trajectory, episode depending on what caused us to finish
+ - roll back to start if we've not hit the end of the spell
+ 
+ 
