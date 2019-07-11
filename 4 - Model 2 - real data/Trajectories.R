@@ -26,7 +26,7 @@ traj_nxt<-list()
 
 
 any_medical <- c("9","15","26","23","24","22","29","31","7","8","11","26","12Esc","17Esc","ACU","CDU","AMU1","AMU4","AMU4Esc","33","3","6")
-any_surgical <- c("11","12","14","18","SAU20","21","26","27","28","8")
+any_surgical <- c("8","11","12","14","18","SAU20","21","26","27","28")
 
 
 
@@ -76,7 +76,7 @@ traj_nxt[[x]]<-x
 # ## 3 - Emergency Maxfax
 x<-3
 traj_pr1[[x]]<-c("18","18Esc")
-traj_pr2[[x]]<-c("27")
+traj_pr2[[x]]<-any_surgical
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -96,15 +96,15 @@ traj_nxt[[x]]<-x
 # ## 5 - Emergency ENT
 x<-5
 traj_pr1[[x]]<-c("18","18Esc")
-traj_pr2[[x]]<-c("27")
+traj_pr2[[x]]<-any_surgical
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
 
 # ## 6 - Emergency Orthogeriatrics
 x<-6
-traj_pr1[[x]]<-c("31")
-traj_pr2[[x]]<-c("28","27")
+traj_pr1[[x]]<-c("31","29")
+traj_pr2[[x]]<-c("3","28","27")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -120,7 +120,7 @@ traj_nxt[[x]]<-x
 # ## 8 - Emergency Ophth
 x<-8
 traj_pr1[[x]]<-c("18","18Esc")
-traj_pr2[[x]]<-c("27")
+traj_pr2[[x]]<-any_surgical
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -128,7 +128,7 @@ traj_nxt[[x]]<-x
 # ## 9 - Emergency Vascular
 x<-9
 traj_pr1[[x]]<-c("26")
-traj_pr2[[x]]<-c("21","SAU20","8","11","27","28")
+traj_pr2[[x]]<-c("21","SAU20","8","11")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -136,7 +136,7 @@ traj_nxt[[x]]<-x
 # ## 10 - Emergency Breast
 x<-10
 traj_pr1[[x]]<-c("12","12Esc")
-traj_pr2[[x]]<-c("21","SAU20","8","11","27","28")
+traj_pr2[[x]]<-c("21","SAU20","8","11")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -144,14 +144,14 @@ traj_nxt[[x]]<-x
 # ## 11 - Emergency Gynae
 x<-11
 traj_pr1[[x]]<-c("12","12Esc")
-traj_pr2[[x]]<-c("21","SAU20","8","11","27","28")
+traj_pr2[[x]]<-c("21","SAU20","8","11")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
 
 # ## 99 - Emergency, unknown surgical
 x<-99
-traj_pr1[[x]]<-c("21","SAU20","8","11","26","27","28","12")
+traj_pr1[[x]]<-c("21","SAU20","8","11","26","12")
 traj_pr2[[x]]<-any_surgical
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
@@ -294,16 +294,16 @@ traj_nxt[[x]]<-x
 
 # ## 1002 = Elective Vascular
 x<-1002
-traj_pr1[[x]]<-c("26")
-traj_pr2[[x]]<-c("21","SAU20","8","11","27","28")
+traj_pr1[[x]]<-c("26","21")
+traj_pr2[[x]]<-c("SAU20","8","11","27","28")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
 
 # ## 1003 = Elective Ortho
 x<-1003
-traj_pr1[[x]]<-c("28")
-traj_pr2[[x]]<-c("27","26")
+traj_pr1[[x]]<-c("28","27")
+traj_pr2[[x]]<-c("26")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -326,8 +326,8 @@ traj_nxt[[x]]<-x
 
 # ## 1006 = Elective Plastics
 x<-1006
-traj_pr1[[x]]<-c("27")
-traj_pr2[[x]]<-c("28")
+traj_pr1[[x]]<-c("27","28")
+traj_pr2[[x]]<-c("26")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -342,7 +342,7 @@ traj_nxt[[x]]<-x
 
 # ## 1008 = Elective Urology
 x<-1008
-traj_pr1[[x]]<-c("14")
+traj_pr1[[x]]<-c("14","12","12Esc")
 traj_pr2[[x]]<-c("SAU20","21","12","26")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
