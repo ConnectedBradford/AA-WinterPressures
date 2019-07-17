@@ -470,7 +470,7 @@ simmer_wrapper <- function(i) {
   elective_patient_come_back_next_week<-trajectory() %>%   
     set_global("Elective_OTD_Cancellations",1,mod="+") %>% 
     set_queue_size_selected(-1,mod="+") %>% 
-    timeout(3600*24*7-10*3600-1) %>% ## come back slightly earlier next time, remove 10hrs as that's how long we queued for
+    timeout(3600*24*7-14*3600-1) %>% ## come back slightly earlier next time, remove 12hrs as that's how long we queued for
     rollback(8) #9 with, 8 without log statement
   
   
@@ -479,7 +479,7 @@ simmer_wrapper <- function(i) {
     ## try queuing?
     select(function() { traj_pr1[[get_attribute(env,"cur_traj")]] },"shortest-queue-available") %>% 
     set_queue_size_selected(1,mod="+") %>% 
-    renege_in(10*3600,out=elective_patient_come_back_next_week) %>% 
+    renege_in(14*3600,out=elective_patient_come_back_next_week) %>% ##allow a decent length of time as a patient could use discharge lounge etc
     seize_selected() %>% 
     ## we succeeded
     renege_abort() %>% 
@@ -585,6 +585,9 @@ resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 
 print(plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch="."))
 
+
+
+attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
 
 library(ggplot2)
 ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
