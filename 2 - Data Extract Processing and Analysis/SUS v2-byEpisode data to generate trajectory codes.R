@@ -274,13 +274,25 @@ print("* Saved Trajectories *")
 emergency_spells <- readRDS("../Data - For Modelling/Emergency-Spells.rds")
 emergency_Spells_bak<-emergency_spells
 elective_spells <- readRDS("../Data - For Modelling/Elective-Spells.rds")
+icu_raw_segments<-readRDS("../Data - Generated/SUSv2-byEpisode-critcaredata.rds")
 
-##TODO - add critical care spells here for linking
+
 
 print("* Loaded Spells *")
 
+
+icu_segments<-dplyr::select(icu_raw_segments,"_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","ccstay","_ccseg","_SegmentStart_DateTime","_SegmentEnd_DateTime","_SegmentDischReady_DateTime","_RealCritCare","_CCTransfer","Critical Care Level 2 Days","Critical Care Level 3 Days")
+
+print("* ICU fixup *")
+
+
 emergency_spells$ep1_row_id<-match(paste0(emergency_spells$`_SpellID`,"1"),paste0(combined$`_SpellID`,combined$`Episode Number`))
 elective_spells$ep1_row_id<-match(paste0(elective_spells$`_SpellID`,"1"),paste0(combined$`_SpellID`,combined$`Episode Number`))
+
+elective_spells$cc1_row_id<-match(paste0(elective_spells$`_TLSpellDigest`,"1"),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
+emergency_spells$cc1_row_id<-match(paste0(emergency_spells$`_TLSpellDigest`,"1"),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
+
+icu_segments$segN_row_id<-match(paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`+1),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
 
 combined$epN_row_id<-match(paste0(combined$`_SpellID`,combined$`Episode Number`+1),paste0(combined$`_SpellID`,combined$`Episode Number`))
 
@@ -289,6 +301,7 @@ print("* Linked-List Created *")
 saveRDS(combined,"../Data - For Modelling/Both-Episodes-Linked.rds")
 saveRDS(emergency_spells,"../Data - For Modelling/Emergency-Spells-Linked.rds")
 saveRDS(elective_spells,"../Data - For Modelling/Elective-Spells-Linked.rds")
+saveRDS(icu_segments,"../Data - For Modelling/CritCare-Segments-Linked.rds")
 
 print("* Finished *")
 

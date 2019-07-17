@@ -132,6 +132,14 @@ critcaredata$`_SegmentEnd_DateTime` <- pmin(critcaredata$`_SegmentEnd_DateTime`,
 ## helps fix some of the ward21 timing issues too by constraining the segment start and end times
 
 
+
+## work out when they're fit for discharge - use discharge ready time, or 
+critcaredata$`_SegmentDischReady_DateTime`<-as.POSIXct(strptime(paste0(critcaredata$`Critical Care Discharge Ready Date`," ",critcaredata$`Critical Care Discharge Ready Time`),format="%Y%m%d %H:%M:%S"))
+critcaredata$`_SegmentDischReady_DateTime2`<-as.POSIXct(strptime(paste0(as.Date(critcaredata$`_SegmentEnd_DateTime`)," ","08:00"),format="%Y-%m-%d %H:%M"))
+critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredata$`_SegmentDischReady_DateTime`),critcaredata$`_SegmentDischReady_DateTime2`,critcaredata$`_SegmentDischReady_DateTime`),origin="1970-01-01 00:00:00")
+
+
+
 ##set ward 21 flag - times are 00:00-23:59, or local identifier not 8 digits starting with 4 digits of year (ie not 'proper' critical care unit)
 
 critcaredata$`_RealCritCare` <- nchar(critcaredata$`Critical Care Local Identifier`)>7
@@ -140,6 +148,10 @@ critcaredata$`_RealCritCare` <- nchar(critcaredata$`Critical Care Local Identifi
 critcaredata$ccstay<-as.numeric(critcaredata$ccstay)
 
 print("* Crit care table created *")
+
+critcaredata$`_CCTransfer`<-FALSE
+critcaredata$`_ccseg`<-0
+## transfer = we move directly between critical care beds rather than having a ward bed in the meantime (used in model to determine movements as they may not occur at the real times)
 
 ##iterate over critical care stay, if overlap between start and discharge times of adjacent segments, set both to be the one that's not 23:59 or 00:00 (ie ward 21)
 
@@ -153,8 +165,10 @@ for (ccspell in ccspells) {
     ## nb multiple ccstays possible per episode
     curseg_ccstay<-ccstays[i_cc,]$ccstay
     curseg_episode<-ccstays[i_cc,]$`Episode Number`
+    critcaredata$`_ccseg`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==curseg_ccstay)&(critcaredata$`Episode Number`==curseg_episode)]<-i_cc
     if (i_cc>1) {
-      if (prevseg_end>ccstays[i_cc,]$`_SegmentStart_DateTime`) {
+      if (prevseg_end>=ccstays[i_cc,]$`_SegmentStart_DateTime`) {
+        critcaredata$`_CCTransfer`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-TRUE
         ## one of them needs changing, pick the one that's not a real critical care episode
         if (prevseg_real) {
           ## correct this segment by setting start datetime to prevseg_end
@@ -165,6 +179,7 @@ for (ccspell in ccspells) {
         }
       }
     }
+    
     prevseg_end<-ccstays[i_cc,]$`_SegmentEnd_DateTime`
     prevseg_real<-ccstays[i_cc,]$`_RealCritCare`
     prevseg_ccstay<-ccstays[i_cc,]$ccstay
