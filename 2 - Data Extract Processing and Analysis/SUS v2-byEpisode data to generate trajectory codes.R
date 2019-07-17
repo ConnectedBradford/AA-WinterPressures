@@ -281,7 +281,7 @@ icu_raw_segments<-readRDS("../Data - Generated/SUSv2-byEpisode-critcaredata.rds"
 print("* Loaded Spells *")
 
 
-icu_segments<-dplyr::select(icu_raw_segments,"_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","ccstay","_ccseg","_SegmentStart_DateTime","_SegmentEnd_DateTime","_SegmentDischReady_DateTime","_RealCritCare","_CCTransfer","Critical Care Level 2 Days","Critical Care Level 3 Days")
+icu_segments<-dplyr::select(icu_raw_segments,"_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","ccstay","_ccseg","_SegmentStart_DateTime","_SegmentEnd_DateTime","_SegmentDischReady_DateTime","_SegmentEnd_Offset","_SegmentDischReady_Offset","_RealCritCare","_CCTransfer","Critical Care Level 2 Days","Critical Care Level 3 Days")
 
 print("* ICU fixup *")
 
@@ -291,6 +291,34 @@ elective_spells$ep1_row_id<-match(paste0(elective_spells$`_SpellID`,"1"),paste0(
 
 elective_spells$cc1_row_id<-match(paste0(elective_spells$`_TLSpellDigest`,"1"),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
 emergency_spells$cc1_row_id<-match(paste0(emergency_spells$`_TLSpellDigest`,"1"),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
+
+
+icu_segments$row_id<-1:nrow(icu_segments)
+
+emerg_joined<-left_join(emergency_spells,icu_segments,by=c("cc1_row_id"="row_id"))
+
+emerg_joined$cc_test<-abs(emerg_joined$`_SegmentStart_DateTime`-emerg_joined$`_SpellStart_DateTime`)
+
+emergency_spells$cc_start<-ifelse(emerg_joined$cc_test<18*3600,1,0)
+##if they come to ICU within 18hrs of arriving at the hospital, assume they need to be there at the start
+##nb not true/false as we're using attributes in r-simmer which have to be numeric
+
+
+elec_joined<-left_join(elective_spells,icu_segments,by=c("cc1_row_id"="row_id"))
+
+elec_joined$cc_test<-abs(elec_joined$`_SegmentStart_DateTime`-elec_joined$`_SpellStart_DateTime`)
+
+elective_spells$cc_start<-ifelse(elec_joined$cc_test<18*3600,1,0)
+
+##if they come to ICU within 18hrs of arriving at the hospital, assume they need to be there at the start (nb - arrive 0700, could have a long case and not leave theatre until after midnight)
+##nb not true/false as we're using attributes in r-simmer which have to be numeric
+
+
+elective_spells$cc_start[is.na(elective_spells$cc_start)]<-0
+emergency_spells$cc_start[is.na(emergency_spells$cc_start)]<-0
+elective_spells$cc1_row_id[is.na(elective_spells$cc1_row_id)]<-0
+emergency_spells$cc1_row_id[is.na(emergency_spells$cc1_row_id)]<-0
+# zero is our NA value
 
 icu_segments$segN_row_id<-match(paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`+1),paste0(icu_segments$`_TLSpellDigest`,icu_segments$`_ccseg`))
 
