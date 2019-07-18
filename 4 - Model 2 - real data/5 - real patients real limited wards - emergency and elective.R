@@ -20,6 +20,7 @@
 ## Uses Rcpp as original approach is very slow because of the repeated filtering required to pull a real patient each time we want to admit one
 ##  v2 - generate all the admission intervals in advance (create a new table of interarrival times and absolute times)
 
+## presently seems to give us a hospital hovering about just under 600 occupied beds, which seems plausible
 
 set.seed(12346)
 this.dir <-dirname(parent.frame(2)$ofile)
@@ -295,7 +296,7 @@ simmer_wrapper <- function(i) {
 
   
   common_patient<-trajectory() %>% 
- 
+    
     seize("bed") %>% 
     #    log_(function(){
     #     paste0(get_attribute(env,"end_time_ep")-get_attribute(env,"end_time_spell"))
@@ -304,10 +305,10 @@ simmer_wrapper <- function(i) {
     select(function() {
       pr<-get_attribute(env,"pr")
       switch(pr,
-      traj_pr1[[get_attribute(env,"cur_traj")]],
-      traj_pr2[[get_attribute(env,"cur_traj")]],
-      traj_pr3[[get_attribute(env,"cur_traj")]],
-      wards$Ward) ##change to a string vector
+             traj_pr1[[get_attribute(env,"cur_traj")]],
+             traj_pr2[[get_attribute(env,"cur_traj")]],
+             traj_pr3[[get_attribute(env,"cur_traj")]],
+             wards$Ward) ##change to a string vector
     },"first-available") %>% 
     ## first-available = pick the first one with a free bed, or first one with a free queue spot, or first one with non-zero capacity (errors if all have zero capacity)
     seize_selected(reject=patient_rejected,continue=FALSE) %>%
@@ -316,7 +317,8 @@ simmer_wrapper <- function(i) {
     set_attribute(c("cur_traj","nxt_traj","end_time_ep","cur_ep_row_id"),function() {
       now<-now(env)
       end_time_ep<-get_attribute(env,"end_time_ep")
-  end_time_spell<-get_attribute(env,"end_time_spell")
+      end_time_spell<-get_attribute(env,"end_time_spell")
+      start_time_spell<-get_attribute(env,"start_time")
       if (now>=end_time_ep) {
         if (now<end_time_spell) {
           ##next episode
@@ -329,7 +331,7 @@ simmer_wrapper <- function(i) {
           if (!is.na(cur_ep_row_id)){
             cur_traj<-as.numeric(combined_episodes[[cur_ep_row_id,"traj"]])
             nxt_traj<-traj_nxt[[cur_traj]]
-            end_time_ep<-as.numeric(combined_episodes[[cur_ep_row_id,"_EpisodeEnd_Offset"]])+now
+            end_time_ep<-as.numeric(combined_episodes[[cur_ep_row_id,"_EpisodeEnd_Offset"]])+start_time_spell
           } else {
             ##we've run out of episodes but haven't finished yet - this shouldn't really happen (but means the discharge datetime is after the end of the last episode)
             print("NA")
@@ -342,7 +344,7 @@ simmer_wrapper <- function(i) {
           return(as.numeric(c(cur_traj,nxt_traj,end_time_ep,cur_ep_row_id)))
         } else {
           ## we're at our spell's end - no need for more data as we're about to finish
-               return(c(0,0,0,0))
+          return(c(0,0,0,0))
         }
         
       } else {
@@ -450,7 +452,7 @@ library(simmer.plot)
 
 resources<-get_mon_resources(envs)
 
-resources2<-filter(resources,resource=="17Esc")
+resources2<-filter(resources,resource=="bed")
 
 resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 

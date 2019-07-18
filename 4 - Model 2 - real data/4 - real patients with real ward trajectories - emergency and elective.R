@@ -292,7 +292,8 @@ simmer_wrapper <- function(i) {
     set_attribute(c("cur_traj","nxt_traj","end_time_ep","cur_ep_row_id"),function() {
       now<-now(env)
       end_time_ep<-get_attribute(env,"end_time_ep")
-  end_time_spell<-get_attribute(env,"end_time_spell")
+      end_time_spell<-get_attribute(env,"end_time_spell")
+      start_time_spell<-get_attribute(env,"start_time")
       if (now>=end_time_ep) {
         if (now<end_time_spell) {
           ##next episode
@@ -305,7 +306,7 @@ simmer_wrapper <- function(i) {
           if (!is.na(cur_ep_row_id)){
             cur_traj<-as.numeric(combined_episodes[[cur_ep_row_id,"traj"]])
             nxt_traj<-traj_nxt[[cur_traj]]
-            end_time_ep<-as.numeric(combined_episodes[[cur_ep_row_id,"_EpisodeEnd_Offset"]])+now
+            end_time_ep<-as.numeric(combined_episodes[[cur_ep_row_id,"_EpisodeEnd_Offset"]])+start_time_spell
           } else {
             ##we've run out of episodes but haven't finished yet - this shouldn't really happen (but means the discharge datetime is after the end of the last episode)
             print("NA")
@@ -318,7 +319,7 @@ simmer_wrapper <- function(i) {
           return(as.numeric(c(cur_traj,nxt_traj,end_time_ep,cur_ep_row_id)))
         } else {
           ## we're at our spell's end - no need for more data as we're about to finish
-               return(c(0,0,0,0))
+          return(c(0,0,0,0))
         }
         
       } else {
