@@ -35,7 +35,7 @@ x<-10002
 traj_pr1[[x]]<-c("AMU1","AMU4","AMU4Esc")
 traj_pr2[[x]]<-c("ACU","17Esc")
 traj_pr3[[x]]<-any_medical
-traj_dur[[x]]<-24*3600
+traj_dur[[x]]<-48*3600
 traj_nxt[[x]]<-x
 
  ##10001=SAU
@@ -43,7 +43,7 @@ x<-10001
 traj_pr1[[x]]<-c("SAU20")
 traj_pr2[[x]]<-c("21","11","8","26")
 traj_pr3[[x]]<-any_surgical
-traj_dur[[x]]<-24*3600
+traj_dur[[x]]<-48*3600
 traj_nxt[[x]]<-x
 
 
@@ -52,7 +52,7 @@ x<-10003
 traj_pr1[[x]]<-c("32")
 traj_pr2[[x]]<-c("30")
 traj_pr3[[x]]<-c("32","30")
-traj_dur[[x]]<-24*3600
+traj_dur[[x]]<-48*3600
 traj_nxt[[x]]<-x
 
 ## 1 - Emergency Gen Surgical
@@ -75,7 +75,7 @@ traj_nxt[[x]]<-x
 
 # ## 3 - Emergency Maxfax
 x<-3
-traj_pr1[[x]]<-c("18","18Esc")
+traj_pr1[[x]]<-c("18","18Esc","27")
 traj_pr2[[x]]<-any_surgical
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
@@ -128,7 +128,7 @@ traj_nxt[[x]]<-x
 # ## 9 - Emergency Vascular
 x<-9
 traj_pr1[[x]]<-c("26")
-traj_pr2[[x]]<-c("21","SAU20","8","11")
+traj_pr2[[x]]<-c("21","SAU20","27","8","11")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -210,8 +210,8 @@ traj_nxt[[x]]<-x
 # 
 # ## 106 - Emergency Haematology
 x<-106
-traj_pr1[[x]]<-c("33")
-traj_pr2[[x]]<-c("24","17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr1[[x]]<-c("33","24")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
 traj_pr3[[x]]<-any_medical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -242,7 +242,7 @@ traj_nxt[[x]]<-x
 
 # ## 110 - Emergency Geriatrics/Rehab
 x<-110
-traj_pr1[[x]]<-c("31","29")
+traj_pr1[[x]]<-c("31","29","3")
 traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
 traj_pr3[[x]]<-any_medical
 traj_dur[[x]]<-7*24*3600 #move on after a week - could change?
@@ -358,8 +358,8 @@ traj_nxt[[x]]<-x
 
 # ## 1010 = Elective Ophth
 x<-1010
-traj_pr1[[x]]<-c("18","18Esc")
-traj_pr2[[x]]<-c("27")
+traj_pr1[[x]]<-c("18","18Esc","27")
+traj_pr2[[x]]<-c("31","3")
 traj_pr3[[x]]<-any_surgical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -390,8 +390,8 @@ traj_nxt[[x]]<-x
 
 # ## 1102 = Elective Haem
 x<-1102
-traj_pr1[[x]]<-c("33")
-traj_pr2[[x]]<-c("24","17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
+traj_pr1[[x]]<-c("33","24")
+traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
 traj_pr3[[x]]<-any_medical
 traj_dur[[x]]<-Inf
 traj_nxt[[x]]<-x
@@ -439,7 +439,7 @@ traj_nxt[[x]]<-x
 
 # ## 1108 = Elective Geriatrics
 x<-1108
-traj_pr1[[x]]<-c("31","29")
+traj_pr1[[x]]<-c("31","29","3")
 traj_pr2[[x]]<-c("17Esc","AMU1","AMU4","AMU4Esc","9","ACU","CDU")
 traj_pr3[[x]]<-any_medical
 traj_dur[[x]]<-7*24*3600 #move on after a week - could change?
