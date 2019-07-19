@@ -143,6 +143,7 @@ critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredat
 
 critcaredata$`_SegmentDischReady_Offset`<-difftime(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
 critcaredata$`_SegmentEnd_Offset`<-difftime(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
+critcaredata$`_SegmentStart_Offset`<-difftime(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
 
 
 
@@ -155,7 +156,7 @@ critcaredata$ccstay<-as.numeric(critcaredata$ccstay)
 
 print("* Crit care table created *")
 
-critcaredata$`_CCTransfer`<-FALSE
+critcaredata$`_CCTransfer`<-0
 critcaredata$`_ccseg`<-0
 ## transfer = we move directly between critical care beds rather than having a ward bed in the meantime (used in model to determine movements as they may not occur at the real times)
 
@@ -174,7 +175,7 @@ for (ccspell in ccspells) {
     critcaredata$`_ccseg`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==curseg_ccstay)&(critcaredata$`Episode Number`==curseg_episode)]<-i_cc
     if (i_cc>1) {
       if (prevseg_end>=ccstays[i_cc,]$`_SegmentStart_DateTime`) {
-        critcaredata$`_CCTransfer`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-TRUE
+        critcaredata$`_CCTransfer`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-1
         ## one of them needs changing, pick the one that's not a real critical care episode
         if (prevseg_real) {
           ## correct this segment by setting start datetime to prevseg_end

@@ -88,7 +88,7 @@ combined<-
     `_Elective`==FALSE & `Treatment Function Code`==120 ~ 5,
     
     ## 6 - Emergency Orthogeriatrics
-    `_Elective`==FALSE & `Treatment Function Code`==110 & `age`>78 ~ 6,
+    `_Elective`==FALSE & `Treatment Function Code`==110 & `age`>70 ~ 6,
     
     ## 7 - Emergency Ortho
     `_Elective`==FALSE & `Treatment Function Code`==110 ~ 7,
@@ -281,7 +281,7 @@ icu_raw_segments<-readRDS("../Data - Generated/SUSv2-byEpisode-critcaredata.rds"
 print("* Loaded Spells *")
 
 
-icu_segments<-dplyr::select(icu_raw_segments,"_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","ccstay","_ccseg","_SegmentStart_DateTime","_SegmentEnd_DateTime","_SegmentDischReady_DateTime","_SegmentEnd_Offset","_SegmentDischReady_Offset","_RealCritCare","_CCTransfer","Critical Care Level 2 Days","Critical Care Level 3 Days")
+icu_segments<-dplyr::select(icu_raw_segments,"_TLSpellDigest","Episode Number","Last Episode In Spell Indicator","ccstay","_ccseg","_SegmentStart_DateTime","_SegmentEnd_DateTime","_SegmentDischReady_DateTime","_SegmentStart_Offset","_SegmentEnd_Offset","_SegmentDischReady_Offset","_RealCritCare","_CCTransfer","Critical Care Level 2 Days","Critical Care Level 3 Days")
 
 print("* ICU fixup *")
 
