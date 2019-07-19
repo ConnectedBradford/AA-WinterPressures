@@ -417,9 +417,9 @@ simmer_wrapper <- function(i) {
     
     add_resource("bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE)
   
-  for (ward in wards$Ward) {
-    add_resource(env,ward,capacity=20,queue_size=0,queue_size_strict=TRUE)
-    print(ward)
+  for (i in 1:nrow(wards)) {
+    add_resource(env,wards[i,"Ward"],capacity=wards[i,"Beds"],queue_size=0,queue_size_strict=TRUE)
+    print(paste0(wards[i,"Ward"],":",wards[i,"Beds"]))
   }
   
   
