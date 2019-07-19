@@ -14,8 +14,12 @@ sub1<-trajectory() %>%
   log_("sub1D")
 
 
+sub2B<-trajectory() %>% 
+  log_("sub2B")
+
 sub2<-trajectory() %>% 
   log_("sub2A") %>% 
+  branch(function(){sample(0:1,1)},FALSE,sub2B) %>% 
   timeout(3)
 
 
@@ -53,9 +57,12 @@ bank <-
   add_resource("counter2", 1) %>%
   add_generator("Customer", customer, function() {c(0, rexp(4, 1/10),0,0,0, -1)})
 
+print(plot(customer))
+
 bank %>% run(until = 400)
 
 
 ##conclusion - rollback in a renege trajectory uses the "renegein" as point zero and ignores what the arrival has done since
 ## rollback in a seize reject trajectory works the same (seize is point zero)
 ## rollback after a branch (with continue) treats the branch as a single instruction
+## a branch with "FALSE" for continue means that the trajectory stops there and never returns, even if a "higher" branch has TRUE for continue
