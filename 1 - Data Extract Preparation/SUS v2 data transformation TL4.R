@@ -135,11 +135,15 @@ critcaredata$`_SegmentEnd_DateTime` <- pmin(critcaredata$`_SegmentEnd_DateTime`,
 
 ## work out when they're fit for discharge - use discharge ready time, or 
 critcaredata$`_SegmentDischReady_DateTime`<-as.POSIXct(strptime(paste0(critcaredata$`Critical Care Discharge Ready Date`," ",critcaredata$`Critical Care Discharge Ready Time`),format="%Y%m%d %H:%M:%S"))
+##alternative if not available - earlier of 8am on day of departure, or when they actually left
 critcaredata$`_SegmentDischReady_DateTime2`<-pmin(as.POSIXct(strptime(paste0(as.Date(as.character(critcaredata$`_SegmentEnd_DateTime`))," ","08:00"),format="%Y-%m-%d %H:%M")),critcaredata$`_SegmentEnd_DateTime`)
 ##nb as.character above because of the issue with dates shortly after midnight being put back to previous day
-critcaredata$`_SegmentDischReady_DateTime2`<-pmax(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SegmentDischReady_DateTime2`)
+#critcaredata$`_SegmentDischReady_DateTime2`<-pmax(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SegmentDischReady_DateTime2`)
 ##estimate discharge times, but they can't be before arrival or after leaving!
 critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredata$`_SegmentDischReady_DateTime`),critcaredata$`_SegmentDischReady_DateTime2`,critcaredata$`_SegmentDischReady_DateTime`),origin="1970-01-01 00:00:00")
+
+##can't be before we've arrived!
+critcaredata$`_SegmentDischReady_DateTime`<-pmax(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentStart_DateTime`)
 
 critcaredata$`_SegmentDischReady_Offset`<-difftime(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
 critcaredata$`_SegmentEnd_Offset`<-difftime(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
