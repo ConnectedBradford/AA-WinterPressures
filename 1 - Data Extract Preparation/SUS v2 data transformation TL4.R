@@ -133,24 +133,6 @@ critcaredata$`_SegmentEnd_DateTime` <- pmin(critcaredata$`_SegmentEnd_DateTime`,
 
 
 
-## work out when they're fit for discharge - use discharge ready time, or 
-critcaredata$`_SegmentDischReady_DateTime`<-as.POSIXct(strptime(paste0(critcaredata$`Critical Care Discharge Ready Date`," ",critcaredata$`Critical Care Discharge Ready Time`),format="%Y%m%d %H:%M:%S"))
-##alternative if not available - earlier of 8am on day of departure, or when they actually left
-critcaredata$`_SegmentDischReady_DateTime2`<-pmin(as.POSIXct(strptime(paste0(as.Date(as.character(critcaredata$`_SegmentEnd_DateTime`))," ","08:00"),format="%Y-%m-%d %H:%M")),critcaredata$`_SegmentEnd_DateTime`)
-##nb as.character above because of the issue with dates shortly after midnight being put back to previous day
-#critcaredata$`_SegmentDischReady_DateTime2`<-pmax(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SegmentDischReady_DateTime2`)
-##estimate discharge times, but they can't be before arrival or after leaving!
-critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredata$`_SegmentDischReady_DateTime`),critcaredata$`_SegmentDischReady_DateTime2`,critcaredata$`_SegmentDischReady_DateTime`),origin="1970-01-01 00:00:00")
-
-##can't be before we've arrived!
-critcaredata$`_SegmentDischReady_DateTime`<-pmax(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentStart_DateTime`)
-
-critcaredata$`_SegmentDischReady_Offset`<-difftime(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
-critcaredata$`_SegmentEnd_Offset`<-difftime(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
-critcaredata$`_SegmentStart_Offset`<-difftime(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
-
-
-
 ##set ward 21 flag - times are 00:00-23:59, or local identifier not 8 digits starting with 4 digits of year (ie not 'proper' critical care unit)
 
 critcaredata$`_RealCritCare` <- nchar(critcaredata$`Critical Care Local Identifier`)>7
@@ -204,6 +186,28 @@ for (ccspell in ccspells) {
 }
  
  print("* Crit care loop finished *")
+ 
+ 
+ 
+ ## work out when they're fit for discharge - use discharge ready time, or 
+ critcaredata$`_SegmentDischReady_DateTime`<-as.POSIXct(strptime(paste0(critcaredata$`Critical Care Discharge Ready Date`," ",critcaredata$`Critical Care Discharge Ready Time`),format="%Y%m%d %H:%M:%S"))
+ ##alternative if not available - earlier of 8am on day of departure, or when they actually left
+ critcaredata$`_SegmentDischReady_DateTime2`<-pmin(as.POSIXct(strptime(paste0(as.Date(as.character(critcaredata$`_SegmentEnd_DateTime`))," ","08:00"),format="%Y-%m-%d %H:%M")),critcaredata$`_SegmentEnd_DateTime`)
+ ##nb as.character above because of the issue with dates shortly after midnight being put back to previous day
+ #critcaredata$`_SegmentDischReady_DateTime2`<-pmax(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SegmentDischReady_DateTime2`)
+ ##estimate discharge times, but they can't be before arrival or after leaving!
+ critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredata$`_SegmentDischReady_DateTime`),critcaredata$`_SegmentDischReady_DateTime2`,critcaredata$`_SegmentDischReady_DateTime`),origin="1970-01-01 00:00:00")
+ 
+ ##can't be before we've arrived or after we've left! (just in case of data quality issues)
+ critcaredata$`_SegmentDischReady_DateTime`<-pmax(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentStart_DateTime`)
+ critcaredata$`_SegmentDischReady_DateTime`<-pmin(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentEnd_DateTime`)
+ 
+ critcaredata$`_SegmentDischReady_Offset`<-difftime(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
+ critcaredata$`_SegmentEnd_Offset`<-difftime(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
+ critcaredata$`_SegmentStart_Offset`<-difftime(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
+ 
+ 
+ print("* Crit care offsets calculated *")
  
  saveRDS(basedata,file="../Data - Generated/SUSv2-byEpisode-basedata.rds")
  saveRDS(repeateddata,file="../Data - Generated/SUSv2-byEpisode-repeateddata.rds")
