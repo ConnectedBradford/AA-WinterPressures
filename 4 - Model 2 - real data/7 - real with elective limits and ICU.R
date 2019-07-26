@@ -8,12 +8,14 @@
 ## DONE - change fixed 10 day stay to pull a real patient and use their stay
 ## DONE - add wards and allow patients to follow a basic pathway (presently still infinite, and all patients are emergency surgical)
 ## DONE - add elective admissions
-## TODO - add correct ward capacity
+## DONE - add correct ward capacity
 ## DONE - add fallback to less-preferred wards
 ## DONE - allow patient to have a set "current" ward rather than dropping and immediately seizing again (nb prio shows how good we think the present ward is)
 ## DONE - move initial ward handling into emergency and elective start trajectories, so common only handles things thereafter
 ## DONE - handle elective patients properly (ie don't let them in when no ward is available)
 ## DONE - queueing for emergency patients? WONTFIX as we'd prefer to keep their options open rather than queuing for one ward
+## DONE - add critical care
+## DONE - investigate critical care length of stay (seems too short) - FIXED
 ## TODO - investigate shortest-queue-available policy as it seems to prefer smaller wards (emailed simmer-devel group)
 ## TODO - open and close ward beds and wards
 
@@ -77,7 +79,7 @@ source("Wards.R")
 
 ## truncate for coding purposes
 #emergency_freq<-head(emergency_freq,200)
-#elective_freq<-head(elective_freq,200)
+#plotelective_freq<-head(elective_freq,20)
 
 
 
@@ -310,7 +312,7 @@ simmer_wrapper <- function(i) {
       CCTransfer<-critcare_segments[cur_cc_row_id,"_CCTransfer"]
       nxt_cc_row_id<-critcare_segments[cur_cc_row_id,"segN_row_id"]
       start_time_cc_seg<-if (!is.na(nxt_cc_row_id)) critcare_segments[nxt_cc_row_id,"_SegmentStart_Offset"]+get_attribute(env,"start_time") else Inf #get_attribute(env,"end_time_spell")+1
-      dcr_time_cc_seg<-critcare_segments[cur_cc_row_id,"_SegmentDischReady_Offset"]
+      dcr_time_cc_seg<-as.numeric(critcare_segments[cur_cc_row_id,"_SegmentDischReady_Offset"]+get_attribute(env,"start_time"))
       return(c(nxt_cc_row_id,start_time_cc_seg,dcr_time_cc_seg,CCTransfer))
     })
   
@@ -523,8 +525,11 @@ simmer_wrapper <- function(i) {
       now<-now(env)
       in_cc<-get_attribute(env,"in_cc")
       ## put multiple branches in here
-      if (now>=start_time_cc_seg && in_cc==1) print("late") ##something delayed us beyond the start
-      if (now>=dcr_time_cc_seg && in_cc==0) print(paste0("what? ",get_attribute(env,"end_time_spell"),":",dcr_time_cc_seg,":",now)) ##delayed so far we missed the end?
+      if (now>start_time_cc_seg && in_cc==1) {
+        print(paste0("late ",start_time_cc_seg,":",dcr_time_cc_seg,":",now)) ##something delayed us beyond the start
+      }
+        
+      if (now>dcr_time_cc_seg && in_cc==0) print(paste0("what? ",get_attribute(env,"end_time_spell"),":",dcr_time_cc_seg,":",now)) ##delayed so far we missed the end?
       if (get_attribute(env,"cur_traj")==0) return(0) #probably died on ICU, could have gone straight home
       if (now>=start_time_cc_seg && in_cc==0) return(1) #admit CC from ward
       if (now>=dcr_time_cc_seg && in_cc==1) return(2) #discharge from CC (to ward or more CC)
@@ -703,7 +708,7 @@ simmer_wrapper <- function(i) {
   
   elective_CC_patient_rejected<-trajectory() %>% 
     ## try queuing?
-    #log_("joining queue") %>% 
+    log_("joining CC queue") %>% 
     select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU") },"shortest-queue-available") %>% 
     set_queue_size_selected(1,mod="+") %>% 
     renege_in(14*3600,out=elective_CC_patient_come_back_next_week) %>% ##allow a decent length of time as a patient could use discharge lounge etc
@@ -791,12 +796,13 @@ library(simmer.plot)
 resources<-get_mon_resources(envs)
 attribs<-get_mon_attributes(envs)
 
-resources2<-filter(resources,resource=="21")
+resources2<-filter(resources,resource=="ICU")
 
 resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 
 print(plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch="."))
 
+print(plot(resources,metric="usage",c("ICU","21"),steps=TRUE,items=c("server","queue")))
 
 
 attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
