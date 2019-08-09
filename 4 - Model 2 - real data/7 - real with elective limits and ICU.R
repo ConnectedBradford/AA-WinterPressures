@@ -19,6 +19,8 @@
 ## TODO - investigate shortest-queue-available policy as it seems to prefer smaller wards (emailed simmer-devel group)
 ## TODO - open and close ward beds and wards
 
+## NB This version requires the "willqueue" branch of r-simmer from my github. Next version will use the priority-based queuing logic.
+
 ##depends on SUSv2-byepisode elective and emergency in "2" directory
 
 ## Uses Rcpp as original approach is very slow because of the repeated filtering required to pull a real patient each time we want to admit one
@@ -78,8 +80,8 @@ source("Wards.R")
 
 
 ## truncate for coding purposes
-#emergency_freq<-head(emergency_freq,200)
-#plotelective_freq<-head(elective_freq,20)
+emergency_freq<-head(emergency_freq,200)
+elective_freq<-head(elective_freq,20)
 
 
 
@@ -561,6 +563,41 @@ simmer_wrapper <- function(i) {
   
   
   
+  set_patient_attributes_common<-trajectory() %>% 
+    set_attribute("cur_ep_row_id", function() {get_attribute(env,"ep1_row_id")}) %>%
+    set_attribute("nxt_cc_row_id", function() {get_attribute(env,"cc1_row_id")}) %>%
+    set_attribute("in_cc",0) %>% 
+    set_attribute("CCTransfer",0) %>% 
+    set_attribute(c("cur_traj","nxt_traj"), function() {
+      pretraj<-combined_episodes[get_attribute(env,"cur_ep_row_id"),"pretraj"]
+      traj<-as.numeric(combined_episodes[get_attribute(env,"cur_ep_row_id"),"traj"])
+      if (is.na(pretraj))
+      {
+        #print(paste("c",traj,traj_nxt[[traj]],sep=":"))
+        return (as.numeric(c(traj,traj_nxt[[traj]])))
+      } else {
+        return (as.numeric(c(pretraj,traj)))
+      }
+    })
+  
+  
+  
+  set_patient_attributes_common_times<-trajectory() %>% 
+    set_attribute("end_time_ep", function() { as.numeric(combined_episodes[get_attribute(env,"cur_ep_row_id"),"_EpisodeEnd_Offset"])+now(env) }) %>%
+    set_attribute("start_time_cc_seg",function() { 
+      if (get_attribute(env,"cc1_row_id")!=0)
+        as.numeric(critcare_segments[get_attribute(env,"cc1_row_id"),"_SegmentStart_Offset"])+now(env)
+      else
+        Inf #get_attribute(env,"end_time_spell")+1
+    }) %>% ##ie start of cc seg will be after end of spell if there's no cc seg
+    set_attribute("dcr_time_cc_seg",function() { 
+      if (get_attribute(env,"cc1_row_id")!=0)
+        as.numeric(critcare_segments[get_attribute(env,"cc1_row_id"),"_SegmentDischReady_Offset"])+now(env)
+      else
+        Inf #get_attribute(env,"end_time_spell")+1
+    }) %>% ##ie end of cc seg will be after end of spell if there's no cc seg
+    set_attribute("start_time", function() {now(env)})
+  
 
   
   emergency_delay_and_reset<-trajectory() %>% 
@@ -610,50 +647,20 @@ simmer_wrapper <- function(i) {
     #log_("cc direct admission") %>% 
     select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU") },"first-available") %>% 
     seize_selected(reject=emergency_CC_patient_rejected,continue=TRUE,willqueue=FALSE) %>%
+    set_attribute("end_time_spell", function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
+    join(set_patient_attributes_common_times) %>% 
     join(set_CC_attributes) %>% 
     #log_("admitted successfully") %>% 
     join(common_patient)
   
   
-  
-  set_patient_attributes_common<-trajectory() %>% 
-    set_attribute("cur_ep_row_id", function() {get_attribute(env,"ep1_row_id")}) %>%
-    set_attribute("nxt_cc_row_id", function() {get_attribute(env,"cc1_row_id")}) %>%
-    set_attribute("in_cc",0) %>% 
-    set_attribute("CCTransfer",0) %>% 
-    set_attribute(c("cur_traj","nxt_traj"), function() {
-      pretraj<-combined_episodes[get_attribute(env,"cur_ep_row_id"),"pretraj"]
-      traj<-as.numeric(combined_episodes[get_attribute(env,"cur_ep_row_id"),"traj"])
-      if (is.na(pretraj))
-      {
-        #print(paste("c",traj,traj_nxt[[traj]],sep=":"))
-        return (as.numeric(c(traj,traj_nxt[[traj]])))
-      } else {
-        return (as.numeric(c(pretraj,traj)))
-      }
-    }) %>% 
-    set_attribute("end_time_ep", function() { as.numeric(combined_episodes[get_attribute(env,"cur_ep_row_id"),"_EpisodeEnd_Offset"])+now(env) }) %>%
-    set_attribute("start_time_cc_seg",function() { 
-      if (get_attribute(env,"cc1_row_id")!=0)
-        as.numeric(critcare_segments[get_attribute(env,"cc1_row_id"),"_SegmentStart_Offset"])+now(env)
-      else
-        Inf #get_attribute(env,"end_time_spell")+1
-    }) %>% ##ie start of cc seg will be after end of spell if there's no cc seg
-    set_attribute("dcr_time_cc_seg",function() { 
-      if (get_attribute(env,"cc1_row_id")!=0)
-        as.numeric(critcare_segments[get_attribute(env,"cc1_row_id"),"_SegmentDischReady_Offset"])+now(env)
-      else
-        Inf #get_attribute(env,"end_time_spell")+1
-    }) %>% ##ie end of cc seg will be after end of spell if there's no cc seg
-    set_attribute("start_time", function() {now(env)})
-    
+
   
   
   
   emergency_patient<- trajectory() %>%
     #log_("arrived") %>% 
     handle_unfinished(catch_unfinished) %>% 
-    set_attribute("end_time_spell", function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
     join(set_patient_attributes_common) %>% 
     branch(function() {
       get_attribute(env,"cc_start")
@@ -674,6 +681,8 @@ simmer_wrapper <- function(i) {
       match(get_selected(env),wards$Ward)
     }) %>% 
     #log_(function(){paste0("Ward:",get_selected(env)," ",get_seized_selected(env))}) %>% 
+    set_attribute("end_time_spell", function() { as.numeric(emergency_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
+    join(set_patient_attributes_common_times) %>% 
     join(common_patient)
   
   
@@ -724,6 +733,8 @@ simmer_wrapper <- function(i) {
     #log_("cc direct admission") %>% 
     select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU") },"first-available") %>% 
     seize_selected(reject=elective_CC_patient_rejected,continue=TRUE,willqueue=FALSE) %>%
+    set_attribute("end_time_spell", function() { as.numeric(elective_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
+    join(set_patient_attributes_common_times) %>% 
     join(set_CC_attributes) %>% 
     join(common_patient)
     
@@ -733,7 +744,6 @@ simmer_wrapper <- function(i) {
   elective_patient<- trajectory() %>%
     #log_("arrived") %>% 
     handle_unfinished(catch_unfinished) %>% 
-    set_attribute("end_time_spell", function() { as.numeric(elective_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
     join(set_patient_attributes_common) %>% 
     # log_(function() {paste0(elective_spells[get_attribute(env,"sp_row_id"),"duration"]," ",combined_episodes[get_attribute(env,"cur_ep_row_id"),"_EpisodeEnd_Offset"])}) %>% 
     branch(function() {
@@ -748,6 +758,8 @@ simmer_wrapper <- function(i) {
       match(get_selected(env),wards$Ward)
     }) %>% 
     #log_(function(){paste0("Ward:",get_selected(env)," ",get_seized_selected(env))}) %>% 
+    set_attribute("end_time_spell", function() { as.numeric(elective_spells[get_attribute(env,"sp_row_id"),"duration"])+now(env) }) %>% 
+    join(set_patient_attributes_common_times) %>% 
     join(common_patient)
   
   
