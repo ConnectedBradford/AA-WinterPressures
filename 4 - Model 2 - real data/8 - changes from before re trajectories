@@ -1,0 +1,39 @@
+Old method re queueing
+``````````````````````
+
+try to seize a bed
+If unavailable, increase queue size by 1
+set renege_in
+try again, using renege_in for delays
+Once successful, decrease queue size by 1
+
+renege_in
+ - use attribute to mark pressure
+ - rollback to retry seize (optionally with greater priority)
+
+
+New method
+``````````
+
+Change priority to allow queueing for that ward
+Set renege_in
+try seize
+once successful, return priority to zero
+
+renege_in
+ - use attribute to mark pressure
+ - set higher priority (but nb can't go above max for that ward)
+ - rollback to retry seize
+ 
+ 
+
+
+Ward priorities
+ - All wards have a number (idx)
+ - idx*10 = minimum priority, idx*10+9 = maximum priority
+ 
+ Default priority for elective idx*10, idx*10+1 when reneged
+ 
+ Default priority for emergency idx*10+5, idx*10+6 when reneged
+ 
+  set priority to - match(get_selected(env,id=1),wards$Ward)*10

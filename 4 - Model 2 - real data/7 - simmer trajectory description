@@ -1,0 +1,100 @@
+Description of trajectories - planned (nb can only refer to trajectories defined before - hence funny order)
+
+
+
+ common_CC_patient
+  #copes with patients having ICU segments, until they're ready to drop back to a ward bed
+  - timeout until
+     ?morning of final day if no ICU segment follows
+     end of segment if step-up in care
+     morning of final day if step down in care
+  - if no ICU segment follows: roll back to common_patient
+  - else request ICU bed of appropriate type for next segment (assuming we don't already have one??)
+   - if failed, queue for a bed (renege in n hours, or end of next segment/episode)
+   ## nb renege should vary depending on whether it's a step up or down
+   - after n hours, alert for ICU pressure (if step up) & queue again, alerting after another time period
+   - if hit segment end and no ICU segment follows then increment ICU segment number and roll back to common_patient (grab a pr1 bed and queue for it?)
+   - if hit segment end and an ICU segment follows, roll back to request (we may already have one)
+  - drop old bed if required
+  - roll back to timeout
+
+
+ CC_admission
+  #bring patient to ICU - emergently
+  - request ICU bed of appropriate type
+   - if failed, queue for a bed (renege in n hours, (or end of segment/episode?))
+    - after n hours, alert for ICU pressure
+    - queue for a bed again, alerting again after another time period (12 hours?)
+  - now we either have a bed or have hit the segment end - if hit segment end then increment ICU segment number and roll back to common_patient
+  - actually may just continue until a CC bed becomes available to represent transfer back from another unit etc
+  - drop old bed
+  - set current ward to ICU/W21
+  - roll back to common_patient
+ 
+ 
+
+common_patient (nb only come here if you have a bed! don't use for handle_unfinished when wards close)
+ ## All patients come here, even CC ones. Otherwise we have massive issues unwinding later.
+ - timeout to either the end of the trajectory or episode or segment
+ - adjust trajectory, episode depending on what caused us to finish (nb need to consider we could have been stuck on ICU while episodes finished)
+ - ICU handling logic
+ - start at prio 1
+ - is current ward on the list for current priority?
+  - if so, skip to the rollback
+ - select best ward based on current priority (no need to look at 4, as we are already in a bed at this point)
+ - try to seize best ward
+  - if failed, increase prio by 1 and try again
+  - if prio is 3 then just stay in present bed (skip to timeout)
+ - once seized, drop old bed
+ - set current ward
+  - roll back to start if we've not hit the end of the spell
+ 
+ 
+ emergency_CC_patient - DONE
+  - try to grab W21 or ICU bed depending on type of ICU segment
+   - if failed, add one to queue and try again for 12hrs
+   - if still failed, keep trying and record failure as a 12hr delay
+  - set current ward (W21 or ICU)
+  - seize "bed"
+  - join common_patient
+  
+  
+
+
+ emergency_patient - DONE
+  - set all the attributes (including segment to first ICU segment, or to discharge if none)
+  - is there an CC stay in the first 20 hours? if so, switch to emergency_CC_patient
+  - set prio to 1
+  - select best ward based on current priority (4=all wards in hospital)
+  - try to seize best ward
+   - if failed, increase prio by 1 and try again
+   - if prio is 4 then there are no beds - PANIC (currently, reset prio to 1 and try again in an hour)
+  - set current ward
+  - seize "bed"
+  - join common_patient
+  
+  
+elective_CC_patient - DONE
+  - try to grab W21 or ICU bed depending on type of ICU segment
+   - if failed, add one to queue and try again for 10hrs
+   - if still failed, follow elective backoff policy (try again in 2 weeks, minus a second or so), and roll back
+  - set current ward (W21 or ICU)
+  - seize "bed"
+  - join common_patient
+  
+  
+  
+ elective_patient - DONE
+  - set all the attributes (including segment to first CC segment, or to discharge if none)
+  - is there an CC stay in the first 20 hours? if so, switch to elective_CC_patient
+  - set prio to 1
+  - select prio 1 ward
+  - try to seize best ward, allow queuing for 10hrs if failed first time (add 1 to queue and retry)
+   - if failed then follow elective backoff policy (likely try again in 2 weeks, minus a few minutes to represent priority), and roll back
+  - set current ward
+  - seize "bed"
+  - join common_patient
+  
+
+  
+
