@@ -343,7 +343,7 @@ simmer_wrapper <- function(i) {
     #log_("cc admission") %>% 
     ## may already have a bed if we've been delayed so check
     #log_(function(){paste0("nxt:",get_attribute(env,"nxt_cc_row_id")," cc1",get_attribute(env,"cc1_row_id"))}) %>% 
-    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"first-available") %>% 
     branch(function() {
       if (get_seized_selected(env)>0) 0 else 1
     },continue=TRUE,CC_admission_seize) %>% 
@@ -624,7 +624,7 @@ simmer_wrapper <- function(i) {
   emergency_CC_patient<- trajectory() %>%
     #log_("cc direct admission") %>% 
     renege_in(12*3600,out=emergency_CC_patient_delayed) %>% ##queue for an hour at each priority
-    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"first-available") %>% 
     set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+5,-1,-1) }) %>% ## allow queueing
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
@@ -693,7 +693,7 @@ simmer_wrapper <- function(i) {
   elective_CC_patient<- trajectory() %>%
     #log_("cc direct admission") %>% 
     renege_in(14*3600,out=elective_CC_patient_come_back_next_week) %>% ##allow a decent length of time as a patient could use discharge lounge etc
-    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"first-available") %>% 
     set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10,-1,-1) }) %>% ## allow queueing
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
