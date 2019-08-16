@@ -82,8 +82,8 @@ source("Wards.R")
 
 
 ## truncate for coding purposes
-#emergency_freq<-head(emergency_freq,500)
-#elective_freq<-head(elective_freq,50)
+#emergency_freq<-head(emergency_freq,200)
+#elective_freq<-head(elective_freq,20)
 
 
 
@@ -315,7 +315,7 @@ simmer_wrapper <- function(i) {
       cur_cc_row_id<-get_attribute(env,"nxt_cc_row_id")
       CCTransfer<-critcare_segments[cur_cc_row_id,"_CCTransfer"]
       nxt_cc_row_id<-critcare_segments[cur_cc_row_id,"segN_row_id"]
-      start_time_cc_seg<-if (!is.na(nxt_cc_row_id)) critcare_segments[nxt_cc_row_id,"_SegmentStart_Offset"]+get_attribute(env,"start_time") else Inf #get_attribute(env,"end_time_spell")+1
+      start_time_cc_seg<-if (!is.na(nxt_cc_row_id)) critcare_segments[nxt_cc_row_id,"_SegmentStart_Offset"]+get_attribute(env,"start_time") else Inf
       dcr_time_cc_seg<-as.numeric(critcare_segments[cur_cc_row_id,"_SegmentDischReady_Offset"]+get_attribute(env,"start_time"))
       return(c(nxt_cc_row_id,start_time_cc_seg,dcr_time_cc_seg,CCTransfer))
     })
@@ -326,24 +326,29 @@ simmer_wrapper <- function(i) {
       return(paste0(get_selected(env),"_Admissions_12H_Delayed"))
     },1,mod="+") %>%
     #set_prioritization(c(1,-1,-1),mod="+") %>% ##increase priority
-    rollback(2) # to renege_in in CC_admission
+    rollback(4) # to select in CC_admission
 
   
-  CC_admission<-trajectory() %>% 
-    #log_("cc admission") %>% 
-    select(function() { wards$Ward[get_attribute(env,"cur_ward_idx")]  },id=1) %>% 
-    #log_(function(){paste0("nxt:",get_attribute(env,"nxt_cc_row_id")," cc1",get_attribute(env,"cc1_row_id"))}) %>% 
-    renege_in(12*3600,out=CC_admission_delayed, keep_seized=TRUE) %>% ##queue for 12hrs before marking delayed admission
-    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU")},"first-available") %>% 
-    set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+5,-1,-1) }) %>% ## allow queueing, prio+5
+  CC_admission_seize<-trajectory() %>% 
+    renege_in(12*3600,out=CC_admission_delayed, keep_seized=TRUE) %>% ##queue for 12hrs before marking delayed transfer
+    set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+5,-1,-1) }) %>% ## allow queueing
     #log_(function() {paste0("cc discharge:",get_selected(env)," ",get_queue_count_selected(env),"/",get_queue_size_selected(env))}) %>% 
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
     renege_abort() %>% 
-    #log_(function(){paste0("Ward:",get_selected(env,id=1)," ",get_seized_selected(env,id=1))}) %>% 
-    release_selected(id=1) %>% 
+    select(function() { wards$Ward[get_attribute(env,"cur_ward_idx")]  },id=1) %>% 
+    release_selected(id=1) 
+  
+  CC_admission<-trajectory() %>% 
+    #log_("cc admission") %>% 
+    ## may already have a bed if we've been delayed so check
+    #log_(function(){paste0("nxt:",get_attribute(env,"nxt_cc_row_id")," cc1",get_attribute(env,"cc1_row_id"))}) %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
+    branch(function() {
+      if (get_seized_selected(env)>0) 0 else 1
+    },continue=TRUE,CC_admission_seize) %>% 
     join(set_CC_attributes) %>% 
-    rollback(14) ##nb log ##nb rollback includes each individual item within the joined trajectory above
+    rollback(8) ##nb log ##nb rollback includes each individual item within the joined trajectory above
   ##rollback to timeout in common_patient
     
   CC_transfer_delayed<-trajectory() %>% 
@@ -356,7 +361,7 @@ simmer_wrapper <- function(i) {
   
   CC_transfer_seize<-trajectory() %>% 
     renege_in(12*3600,out=CC_transfer_delayed, keep_seized=TRUE) %>% ##queue for 12hrs before marking delayed transfer
-    set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+5,-1,-1) }) %>% ## allow queueing
+    set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+6,-1,-1) }) %>% ## allow queueing, higher prio as we'll unblock a cc bed
     #log_(function() {paste0("cc discharge:",get_selected(env)," ",get_queue_count_selected(env),"/",get_queue_size_selected(env))}) %>% 
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
@@ -367,9 +372,10 @@ simmer_wrapper <- function(i) {
   CC_transfer<-trajectory() %>% 
     ##we're in a CC bed already
     #log_("cc transfer") %>% 
-    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else "21" },"first-available") %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"nxt_cc_row_id"),"_RealCritCare"]) "ICU" else "21CC" },"first-available") %>% 
     branch(function() {
-      if (get_seized_selected(env)>0) 0 else 1
+      if (get_seized_selected(env)>0) return(0)
+      return(1)
     },continue=TRUE,CC_transfer_seize) %>% 
     ##if we're here, we're happy with current bed
     join(set_CC_attributes)
@@ -395,7 +401,8 @@ simmer_wrapper <- function(i) {
     release_selected(id=1) %>% 
     set_attribute("cur_ward_idx", function() {   match(get_selected(env),wards$Ward)  }) %>% 
     set_attribute("in_cc",0) %>% 
-    set_attribute("dcr_time_cc_seg",function() {get_attribute(env,"end_time_spell")+1})
+    set_attribute("dcr_time_cc_seg",Inf)
+    #set_attribute("dcr_time_cc_seg",function() {get_attribute(env,"end_time_spell")+1})
     ##rolls back into end of CC_discharge
   
   CC_discharge<-trajectory() %>% 
@@ -406,6 +413,7 @@ simmer_wrapper <- function(i) {
       get_attribute(env,"CCTransfer")+1
     },continue=TRUE,CC_discharge_to_ward,CC_transfer) %>% 
      ##and update dcr_time_cc_seg to end of spell
+    #log_("cc discharge") %>% 
     rollback(4) ## to timeout in common_patient
   
   
@@ -476,9 +484,11 @@ simmer_wrapper <- function(i) {
             end_time_ep<-end_time_spell
           }
           #print(paste("a",cur_traj,nxt_traj,end_time_ep,cur_ep_row_id,sep=":"))
+          #print(paste0("<end ",cur_ep_row_id))
           return(as.numeric(c(cur_traj,nxt_traj,end_time_ep,cur_ep_row_id)))
         } else {
           ## we're at our spell's end - no need for more data as we're about to finish
+          #print("fin")
           return(c(0,0,0,0))
         }
       } else {
@@ -492,6 +502,7 @@ simmer_wrapper <- function(i) {
         #end_time_ep<-get_attribute(env,"end_time_ep") - already set
         cur_ep_row_id<-get_attribute(env,"cur_ep_row_id")
         #print(paste("b",cur_traj,nxt_traj,end_time_ep,cur_ep_row_id,sep=":"))
+        #print(paste0("nxt ",cur_ep_row_id," ",get_attribute(env,"start_time_cc_seg")," ",get_attribute(env,"dcr_time_cc_seg")," ",now))
         return(as.numeric(c(cur_traj,nxt_traj,end_time_ep,cur_ep_row_id)))
       }
     }) %>% 
@@ -499,7 +510,8 @@ simmer_wrapper <- function(i) {
       start_time_cc_seg<-get_attribute(env,"start_time_cc_seg")
       dcr_time_cc_seg<-get_attribute(env,"dcr_time_cc_seg")
       now<-now(env)
-      in_cc<-get_attribute(env,"in_cc")
+      #in_cc<-get_attribute(env,"in_cc")
+      #print(paste0("ccbr ",start_time_cc_seg," ",dcr_time_cc_seg," ",now))
       ## put multiple branches in here
       #if (now>start_time_cc_seg && in_cc==1) {
       #  print(paste0("late ",start_time_cc_seg,":",dcr_time_cc_seg,":",now)) ##something delayed us beyond the start
@@ -507,8 +519,13 @@ simmer_wrapper <- function(i) {
         
       #if (now>dcr_time_cc_seg && in_cc==0) print(paste0("what? ",get_attribute(env,"end_time_spell"),":",dcr_time_cc_seg,":",now)) ##delayed so far we missed the end?
       if (get_attribute(env,"cur_traj")==0) return(0) #probably died on ICU, could have gone straight home
-      if (now>=start_time_cc_seg && in_cc==0) return(1) #admit CC from ward
-      if (now>=dcr_time_cc_seg && in_cc==1) return(2) #discharge from CC (to ward or more CC)
+      if (now>=start_time_cc_seg) return(1) #admit 
+      if (now>=dcr_time_cc_seg) return(2) #discharge
+      # 
+      # if (now>=start_time_cc_seg && in_cc==0) return(1) #admit CC from ward
+      # if (now>=start_time_cc_seg && in_cc==1) return(1) #we're on CC but need to join? Likely we missed a discharge
+      # if (now>=dcr_time_cc_seg && in_cc==1) return(2) #discharge from CC (to ward or more CC)
+      # if (now>=dcr_time_cc_seg && in_cc==0) return(2) #we're not on CC but need to leave?? At least this way we'll go find a ward bed
       return(0)
     },continue=FALSE,CC_admission,CC_discharge) %>% ## join CC_admission or discharge. At the end will have to roll back to set_attribute or timout - depends whether we grab a ward at the end. Probably should grab a pr1 ward.
     set_attribute("pr",1) %>% 
@@ -607,7 +624,7 @@ simmer_wrapper <- function(i) {
   emergency_CC_patient<- trajectory() %>%
     #log_("cc direct admission") %>% 
     renege_in(12*3600,out=emergency_CC_patient_delayed) %>% ##queue for an hour at each priority
-    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU") },"first-available") %>% 
+    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
     set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10+5,-1,-1) }) %>% ## allow queueing
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
@@ -676,8 +693,7 @@ simmer_wrapper <- function(i) {
   elective_CC_patient<- trajectory() %>%
     #log_("cc direct admission") %>% 
     renege_in(14*3600,out=elective_CC_patient_come_back_next_week) %>% ##allow a decent length of time as a patient could use discharge lounge etc
-    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21","ICU") },"first-available") %>% 
-    ##nb use first-available above to make it queue for W21 when appropriate rather than bothering ICU if it happens to have a shorter queue
+    select(function() { if (critcare_segments[get_attribute(env,"cc1_row_id"),"_RealCritCare"]) "ICU" else c("21CC","ICU") },"shortest-queue-available") %>% 
     set_prioritization(function() {  c(match(get_selected(env),wards$Ward)*10,-1,-1) }) %>% ## allow queueing
     seize_selected() %>%
     set_prioritization(c(0,-1,-1)) %>% ##cancel queueing
@@ -768,7 +784,7 @@ simmer_wrapper <- function(i) {
   
   ward_control<-trajectory() %>% 
     set_capacity("17Esc",0) %>% 
-    set_capacity("CDU",0) %>% 
+    #set_capacity("CDU",0) %>% 
     set_capacity("AMU4Esc",0) %>% 
     set_capacity("18Esc",0) %>% 
     set_capacity("12Esc",0) %>% 
@@ -777,15 +793,15 @@ simmer_wrapper <- function(i) {
     branch(function() {
       beds<-get_server_count(env,"bed")
       open17<-(get_capacity(env,"17Esc")>0)
-      if (beds>570 && !open17) return(1)
-      if (beds<510 && open17) return(2)
+      if (beds>580 && !open17) return(1)
+      if (beds<520 && open17) return(2)
       return(0)
     },ward_control_open_17Esc,ward_control_close_17Esc,continue=TRUE) %>% 
     branch(function() {
       beds<-get_server_count(env,"bed")
       open12<-(get_capacity(env,"12Esc")>0)
-      if (beds>550 && !open12) return(1)
-      if (beds<500 && open12) return(2)
+      if (beds>570 && !open12) return(1)
+      if (beds<510 && open12) return(2)
       return(0)
     },ward_control_open_12Esc,ward_control_close_12Esc,continue=TRUE) %>% 
     branch(function() {
@@ -850,7 +866,7 @@ library(pbmcapply)
 
 print("* Simulation started (no output) *")
 
-#envs<-pbmclapply(1:10,simmer_wrapper,mc.cores=8)
+#envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 envs<-simmer_wrapper(1)
@@ -863,19 +879,22 @@ resources<-get_mon_resources(envs)
 attribs<-get_mon_attributes(envs)
 arrivals<-get_mon_arrivals(envs)
 
-resources2<-filter(resources,resource=="ICU")
+#resources2<-filter(resources,resource=="ICU")
 
-resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+#resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 
-print(plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch="."))
+#print(plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch="."))
 
-print(plot(resources,metric="usage",c("ICU","21"),steps=TRUE,items=c("server","queue")))
+#print(plot(resources,metric="usage",c("ICU","21CC"),steps=TRUE,items=c("server","queue")))
 
-print(plot(resources,metric="usage",wards$Ward,steps=TRUE,items=c("server","queue")))
+#print(plot(resources,metric="usage",wards$Ward,steps=TRUE,items=c("server","queue")))
 
-print(plot(resources,metric="usage",c("22Esc","17Esc","AMU4Esc","18Esc","12Esc"),steps=TRUE,items=c("server","queue")))
+#print(plot(resources,metric="usage",c("bed"),steps=TRUE,items=c("server","queue")))
 
-attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
 
-library(ggplot2)
-ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#print(plot(resources,metric="usage",c("22Esc","17Esc","AMU4Esc","18Esc","12Esc"),steps=TRUE,items=c("server","queue")))
+
+#attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
+
+#library(ggplot2)
+#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
