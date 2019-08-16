@@ -20,6 +20,11 @@ library(rapportools)
 library(purrrlyr)
 library(digest)
 library(tidyr)
+
+## simmer has some same function names as tidyr
+if ("package:simmer.plot" %in% search()) detach("package:simmer.plot",unload=TRUE)
+if ("package:simmer" %in% search())detach("package:simmer",unload=TRUE)
+
 max<-base::max
 min<-base::min
 #library(lubridate)
@@ -27,12 +32,27 @@ min<-base::min
 # ##Read in data from SQL - Must change username!##
 # con <- dbConnect(odbc::odbc(), .connection_string="DRIVER=SQL Server;UID=lawtont;DATABASE=proj_TomLawton;WSID=5040-HW25RG2;APP=Microsoft Office 2010;Trusted_Connection=Yes;SERVER=bhts-conyprodwd;Description=bhts-conyprodwd")
 # 
-# print(dbListFields(con,"tbl_SUS_AdmittedPatientCare_Finished"))
+
+# result <- dbSendQuery(con,"SELECT * FROM [proj_TomLawton].[dbo].[tbl_SUS_AdmittedPatientCare_Finished_PART1_V2] WHERE [Ward Code 1]!=''")
+# ## unfortunately can't restrict on site code as the end date one is in the other table
+# sus_data1 <-dbFetch(result)
 # 
-# result <- dbSendQuery(con,"SELECT * FROM [proj_TomLawton].[dbo].[tbl_SUS_AdmittedPatientCare_Finished] WHERE [Ward Code 1]!='' AND [Patient Classification]='1' AND ([Site Code (of Treatment) At Episode Start Date]='RAE01' OR [Site Code (of Treatment) at Episode End Date]='RAE01')")
+# saveRDS(sus_data1,file="new_sus1.rds")
 # 
-# data <- dbFetch(result)
-data<-readRDS("../Data Extracts/SUSv2_all.rds")
+# result <- dbSendQuery(con,"SELECT * FROM [proj_TomLawton].[dbo].[tbl_SUS_AdmittedPatientCare_Finished_PART2_V2]")
+# ## unfortunately can't restrict on site code as the end date one is in the other table
+# sus_data2 <-dbFetch(result)
+# 
+# saveRDS(sus_data2,file="new_sus2.rds")
+# 
+# sus_data_all<-merge(sus_data1,sus_data2,by="Generated Record Identifier")
+# saveRDS(sus_data_all,file="new_sus_all.rds")
+# 
+# nb merged version here only includes rows present in both sus1 and sus2 - ie must have a Ward Code 1.
+
+
+
+data<-readRDS("../Data Extracts/new_sus_all_nowds.rds")
 
 
 ## to remove blank columns - test2<-test[!sapply(test,function(x) all(format(x)==""))]
@@ -159,6 +179,8 @@ for (ccspell in ccspells) {
     curseg_ccstay<-ccstays[i_cc,]$ccstay
     curseg_episode<-ccstays[i_cc,]$`Episode Number`
     critcaredata$`_ccseg`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==curseg_ccstay)&(critcaredata$`Episode Number`==curseg_episode)]<-i_cc
+    
+    
     if (i_cc>1) {
       if (prevseg_end>=ccstays[i_cc,]$`_SegmentStart_DateTime`) {
         critcaredata$`_CCTransfer`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-1
@@ -169,11 +191,17 @@ for (ccspell in ccspells) {
         } else {
           ## correct previous segment by setting end datetime to _segmentstart_datetime
           critcaredata$`_SegmentEnd_DateTime`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-ccstays[i_cc,]$`_SegmentStart_DateTime`
+  ## may also have to correct segment start times as we have an issue with some W21 times overlapping or even being in the wrong order
+                  if (prevseg_start>ccstays[i_cc,]$`_SegmentStart_DateTime`){
+            critcaredata$`_SegmentStart_DateTime`[(critcaredata$`_TLSpellDigest`==ccspell)&(critcaredata$ccstay==prevseg_ccstay)&(critcaredata$`Episode Number`==prevseg_episode)]<-ccstays[i_cc,]$`_SegmentStart_DateTime`
+            
+          }
         }
       }
     }
     
     prevseg_end<-ccstays[i_cc,]$`_SegmentEnd_DateTime`
+    prevseg_start<-ccstays[i_cc,]$`_SegmentStart_DateTime`
     prevseg_real<-ccstays[i_cc,]$`_RealCritCare`
     prevseg_ccstay<-ccstays[i_cc,]$ccstay
     prevseg_episode<-ccstays[i_cc,]$`Episode Number`
@@ -184,8 +212,13 @@ for (ccspell in ccspells) {
     
   }
 }
- 
- print("* Crit care loop finished *")
+
+##make sure the loop didn't leave the last segment in the wrong order 
+critcaredata$`_SegmentEnd_DateTime`<-pmax(critcaredata$`_SegmentStart_DateTime`,critcaredata$`_SegmentEnd_DateTime`)
+
+
+
+print("* Crit care loop finished *")
  
  
  
@@ -198,9 +231,13 @@ for (ccspell in ccspells) {
  ##estimate discharge times, but they can't be before arrival or after leaving!
  critcaredata$`_SegmentDischReady_DateTime`<- as.POSIXct(ifelse(is.na(critcaredata$`_SegmentDischReady_DateTime`),critcaredata$`_SegmentDischReady_DateTime2`,critcaredata$`_SegmentDischReady_DateTime`),origin="1970-01-01 00:00:00")
  
+ 
+
+ 
  ##can't be before we've arrived or after we've left! (just in case of data quality issues)
  critcaredata$`_SegmentDischReady_DateTime`<-pmax(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentStart_DateTime`)
  critcaredata$`_SegmentDischReady_DateTime`<-pmin(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SegmentEnd_DateTime`)
+ 
  
  critcaredata$`_SegmentDischReady_Offset`<-difftime(critcaredata$`_SegmentDischReady_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
  critcaredata$`_SegmentEnd_Offset`<-difftime(critcaredata$`_SegmentEnd_DateTime`,critcaredata$`_SpellStart_DateTime`,units="secs")
