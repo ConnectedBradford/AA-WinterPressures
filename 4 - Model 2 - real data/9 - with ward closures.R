@@ -853,20 +853,27 @@ simmer_wrapper <- function(i) {
  # print(plot(elective_patient))
      
     env %>% 
-     run(until=1632312575	) %>% 
+     simmer::run(until=1632312575	) %>% 
       wrap()
   
 }
 
-library(parallel)
-library(pbmcapply)
+#library(parallel)
+#library(pbmcapply)
+
 ##nb not parallel on windows because of lack of fork()
 ##parallelsugar doesn't work properly because environment isn't copied correctly
+
+#library(future.apply)
+#plan(multiprocess)
+##future.apply also doesn't work properly as it needs things like the calendars reinitialising for each process. See model #4 for how to do this (with doParallel)
 
 
 print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
+
+#envs<-future_lapply(1:4,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 envs<-simmer_wrapper(1)
