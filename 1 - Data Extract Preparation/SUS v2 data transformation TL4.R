@@ -246,6 +246,31 @@ print("* Crit care loop finished *")
  
  print("* Crit care offsets calculated *")
  
+ 
+ ##DVW codes
+ ##O/Z - miscellaneous locations (secondary codes)
+ ##Y97/98 - radiology with/without contrast
+ ##Y904/905 - Ba meal/enema
+ ##Y413 - endoscopic USS of organ
+ ##G16/G45/G55/G65/G80 - oesophagoscopy, gastroscopy, duod/jej/ileoscopy
+ ##H22/H25 - colonoscopy, sigmoidoscopy, 
+ ##U - all diagnostic except:
+ ##U191/197 - implant/remove loop recorder
+ ##U331 - polysomnography
+ ##U5 - rehab
+ 
+ 
+ library("stringr")
+ 
+ dvw<-filter(firstepisodes,`Last Episode In Spell Indicator`==1) %>% 
+   filter_at(vars(ends_with("Procedure (OPCS)")), all_vars(str_detect(.,"(^$|^G(16|45|55|65|80)|^H(22|25)|^Y(413|904|905|97|98)|^Z|^O|^U(?!(191|197|331|5)))")))
+
+ 
+ dvw_bl<-duplicated(c(dvw$`_TLSpellDigest`,basedata$`_TLSpellDigest`))[-seq_len(length(dvw$`_TLSpellDigest`))]
+ basedata$`_dvw_bl`<-dvw_bl
+ 
+ print("* Marked patients with diagnostic-only admissions *")
+ 
  saveRDS(basedata,file="../Data - Generated/SUSv2-byEpisode-basedata.rds")
  saveRDS(repeateddata,file="../Data - Generated/SUSv2-byEpisode-repeateddata.rds")
  saveRDS(critcaredata,file="../Data - Generated/SUSv2-byEpisode-critcaredata.rds")
