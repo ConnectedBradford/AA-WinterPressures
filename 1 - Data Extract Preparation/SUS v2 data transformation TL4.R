@@ -263,9 +263,9 @@ print("* Crit care loop finished *")
  library("stringr")
  
  dvw<-filter(firstepisodes,`Last Episode In Spell Indicator`==1) %>% 
-   filter_at(vars(ends_with("Procedure (OPCS)")), all_vars(str_detect(.,"(^$|^G(16|45|55|65|80)|^H(22|25)|^Y(413|904|905|97|98)|^Z|^O|^U(?!(191|197|331|5)))")))
+   filter_at(vars(ends_with("Procedure (OPCS)")), all_vars(str_detect(.,"(^$|^G(16|45|55|65|80)|^H(22|25)|^Y(413|904|905|97|98)|^Z|^O|^U(?!(191|197|331|5)))"))) %>% 
+   filter(`Critical Care Start Date 1`=="")
 
- 
  dvw_bl<-duplicated(c(dvw$`_TLSpellDigest`,basedata$`_TLSpellDigest`))[-seq_len(length(dvw$`_TLSpellDigest`))]
  basedata$`_dvw_bl`<-dvw_bl
  
