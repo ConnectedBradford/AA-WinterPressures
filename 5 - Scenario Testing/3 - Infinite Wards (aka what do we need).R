@@ -886,14 +886,22 @@ for (i in 1:length(traj_pr1)) {
 }
 
 
-saveRDS(resources,"3-resources.rds")
-saveRDS(attribs,"3-attribs.rds")
-saveRDS(arrivals,"3-arrivals.rds")
+
+saveRDS(resources,"../Model Outputs/3-resources.rds")
+saveRDS(attribs,"../Model Outputs/3-attribs.rds")
+saveRDS(arrivals,"../Model Outputs/3-arrivals.rds")
+
+start_date<-as.POSIXct("2019-09-01",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
 
 
 #resources2<-filter(resources,resource=="bed")
 
+#attribs2<-attribs
+
 #resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+#attribs2$time<-as.POSIXct(attribs2$time,origin="1970-01-01 00:00.00 UTC")
 
 #print(plot(resources2$time,resources2$server,col=resources2$replication,type="l",pch="."))
 
@@ -911,4 +919,6 @@ saveRDS(arrivals,"3-arrivals.rds")
 #attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
 
 #library(ggplot2)
-#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.001) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01,shape=".") + xlim(start_date,end_date)
+
