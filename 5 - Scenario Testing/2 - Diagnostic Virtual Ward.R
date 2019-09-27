@@ -56,7 +56,7 @@ elective_spells$duration[is.na(elective_spells$duration)]<-4*86400
 combined_episodes$`_EpisodeEnd_Offset`[is.na(combined_episodes$`_EpisodeEnd_Offset`)]<-4*86400
 print("* Main data loaded *")
 
-##presently DVW marker is true so long as the patient has only had diagnostic procedures in OPCS and has had no critical care stays
+##presently DVW marker is true so long as the patient has only had diagnostic procedures in OPCS
 
 emergency_spells<- mutate(emergency_spells,`_dvw_bl`=replace(`_dvw_bl`,cc1_row_id>0,FALSE)) %>% 
   mutate(`_dvw_bl`=replace(`_dvw_bl`,duration>7*24*3600,FALSE))
