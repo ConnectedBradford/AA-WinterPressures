@@ -32,6 +32,7 @@
 ## first run has a slow rise before sitting on around 700 occupied beds later - appears that elective patients are being rejected unnecessarily (and building up for later)
 ## adding queueing seems to have fixed that
 
+## if rapportools is loaded then its min overrides base and screws things up
 
 set.seed(12346)
 this.dir <-dirname(parent.frame(2)$ofile)
@@ -876,7 +877,7 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-envs<-future_lapply(1:24,simmer_wrapper)
+envs<-future_lapply(1:48,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 #envs<-simmer_wrapper(1)
@@ -889,12 +890,17 @@ resources<-get_mon_resources(envs)
 attribs<-get_mon_attributes(envs)
 arrivals<-get_mon_arrivals(envs)
 
-saveRDS(resources,"1-resources.rds")
-saveRDS(attribs,"1-attribs.rds")
-saveRDS(arrivals,"1-arrivals.rds")
+saveRDS(resources,"../Model Outputs/1-resources.rds")
+saveRDS(attribs,"../Model Outputs/1-attribs.rds")
+saveRDS(arrivals,"../Model Outputs/1-arrivals.rds")
+
+start_date<-as.POSIXct("2019-10-01",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
 
 
-#resources2<-filter(resources,resource=="ICU")
+#resources2<-filter(resources,resource=="bed")
+
+#attribs2$time2<-as.POSIXct(attribs2$time,origin="1970-01-01 00:00.00 UTC")
 
 #resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
 
@@ -911,5 +917,41 @@ saveRDS(arrivals,"1-arrivals.rds")
 
 #attribs$time<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
 
+#attribs2<-filter(attribs,key=="Elective_OTD_Cancellations")
+#attribs2<-filter(attribs,key=="ICU_Admissions_12H_Delayed")
+
+
+#attribs2$year<-attribs2$time/365/24/3600+1970
+
+#sm.density.compare(attribs2$year,attribs2$replication,h=0.1)
+#sm.density(attribs2$year,group=attribs2$replication,h=0.05,xlim=c(2019.7,2021.3),col=gray((1:24)/28))
+#sm.density(attribs2$year,group=attribs2$replication,h=0.05,xlim=c(2019.7,2021.3),col=rainbow(24,start=0.3,end=0.5,v=0.7))
+#lines(density(attribs2$year,adjust=0.5),lwd=4)
+
+#attribs2$repfac<-factor(attribs2$replication)
+
+#densityPlot(attribs2$year,attribs2$replication,col=rainbow(24,start=0.3,end=0.5,v=0.7))
+#lines(density(attribs2$year),lwd=4)
+
+
+
 #library(ggplot2)
-#ggplot(resources2,aes(x=time,y=server)) + geom_point(alpha=0.01) + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#ggplot(resources2,aes(x=time,y=server,group=replication)) + geom_point(alpha=0.01,shape=".") + stat_summary(fun.data=median_hilow, fun.args=list(conf.int=0.5),geom='smooth',se=TRUE,color='red',fill='red',alpha=0.2) 
+#ggplot(attribs2,aes(x=time,y=value,colour=replication)) + geom_point(alpha=1)
+
+
+#resources3<-resources2[sample(nrow(resources2),300000),]
+#resources4<-resources2[sample(nrow(resources2),30000),]
+#ggplot(resources4,aes(x=time,y=server,group=replication,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red")
+#resources4$rdate<-round_date(resources4$time,unit="day")
+#ggplot(resources4,aes(x=rdate,y=server)) + stat_summary(fun.data="mean_sdl", mult=1,geom="smooth",se=TRUE)
+
+# Daily everything with summary graph
+# ggplot(resources4,aes(x=rdate,y=server,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red") + stat_summary(fun.data="mean_sdl",geom="smooth",se=TRUE)  + xlim(start_date,end_date) + ylim(400,700)
+
+
+##Daily points with weekly data for summary graph:
+#resources4$rwdate<-round_date(resources4$time,unit="week")
+# ggplot(resources4,aes(x=rdate,y=server,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red") + stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE)  + xlim(start_date,end_date) + ylim(400,700)
+
+
