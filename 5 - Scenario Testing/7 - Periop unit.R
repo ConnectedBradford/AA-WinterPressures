@@ -1,38 +1,12 @@
-## Second model using SUS data
-## Models individual wards and whole hospital, all have correct capacity
+## Scenario 7 - periop unit
+
+
+
 ## Inputs 
 ##  (1) Generated frequency of admissions (time of change, rate as patients/24hrs, for elective and emergency care)
 ##  (2) Dataframes of patients for elective and emergency care - using SUS data
 ##  Tick rate is in seconds
-## 
-## DONE - change fixed 10 day stay to pull a real patient and use their stay
-## DONE - add wards and allow patients to follow a basic pathway (presently still infinite, and all patients are emergency surgical)
-## DONE - add elective admissions
-## DONE - add correct ward capacity
-## DONE - add fallback to less-preferred wards
-## DONE - allow patient to have a set "current" ward rather than dropping and immediately seizing again (nb prio shows how good we think the present ward is)
-## DONE - move initial ward handling into emergency and elective start trajectories, so common only handles things thereafter
-## DONE - handle elective patients properly (ie don't let them in when no ward is available)
-## DONE - queueing for emergency patients? WONTFIX as we'd prefer to keep their options open rather than queuing for one ward
-## DONE - add critical care
-## DONE - investigate critical care length of stay (seems too short) - FIXED
-## DONE - investigate shortest-queue-available policy as it seems to prefer smaller wards (emailed simmer-devel group)
-## DONE - revert to using official (CRAN) r-simmer
-## DONE - add back renege_in now that r-simmer can hold on to resources
-## DONE - open and close ward beds and wards
 
-## NB This version works with CRAN simmer - requires v4.3.0 or greater
-
-##depends on SUSv2-byepisode elective and emergency in "2" directory
-
-## Uses Rcpp as original approach is very slow because of the repeated filtering required to pull a real patient each time we want to admit one
-##  v2 - generate all the admission intervals in advance (create a new table of interarrival times and absolute times)
-
-
-## first run has a slow rise before sitting on around 700 occupied beds later - appears that elective patients are being rejected unnecessarily (and building up for later)
-## adding queueing seems to have fixed that
-
-## if rapportools is loaded then its min overrides base and screws things up
 
 set.seed(12346)
 this.dir <-dirname(parent.frame(2)$ofile)
