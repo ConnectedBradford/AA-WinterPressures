@@ -94,7 +94,7 @@ firstepisodes<-filter(data,`Episode Number`=="1")
 firstepisodes$`_SpellID` <- seq.int(nrow(firstepisodes))
 
 
-basedata<-dplyr::select(firstepisodes,`_SpellID`,`_TLSpellDigest`,Pkid.x,Sex,`Start Date (Hospital Provider Spell)`,`Discharge Date (From Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`,`Discharge Time (Hospital Provider Spell)`,`Admission Method (Hospital Provider Spell)`,`Year of Birth`,`Discharge Method (Hospital Provider Spell)`,`Discharge Destination (Hospital Provider Spell)`,`Patient Classification`,`_SpellStart_DateTime`,`_Discharge_DateTime`,`Main Specialty Code`,`Treatment Function Code`)
+basedata<-dplyr::select(firstepisodes,`_SpellID`,`_TLSpellDigest`,Pkid.x,Sex,`Start Date (Hospital Provider Spell)`,`Discharge Date (From Hospital Provider Spell)`,`Start Time (Hospital Provider Spell)`,`Discharge Time (Hospital Provider Spell)`,`Admission Method (Hospital Provider Spell)`,`Year of Birth`,`Discharge Method (Hospital Provider Spell)`,`Discharge Destination (Hospital Provider Spell)`,`Patient Classification`,`_SpellStart_DateTime`,`_Discharge_DateTime`,`Main Specialty Code`,`Treatment Function Code`,`Spell Core HRG`)
 print(unique(basedata$`Admission Method (Hospital Provider Spell)`))
 ## sense check above
 ## elective if first character is a 1
