@@ -308,9 +308,10 @@ elec_joined<-left_join(elective_spells,icu_segments,by=c("cc1_row_id"="row_id"))
 
 elec_joined$cc_test<-abs(elec_joined$`_SegmentStart_DateTime`-elec_joined$`_SpellStart_DateTime`)
 
-elective_spells$cc_start<-ifelse(elec_joined$cc_test<18*3600,1,0)
+elective_spells$cc_start<-ifelse(elec_joined$cc_test<24*3600,1,0)
 
-##if they come to ICU within 18hrs of arriving at the hospital, assume they need to be there at the start (nb - arrive 0700, could have a long case and not leave theatre until after midnight)
+##if they come to ICU within 24hrs of arriving at the hospital, assume they need to be there at the start (nb - arrive 0700, could have a long case and not leave theatre until after midnight)
+##or may even arrive previous day
 ##nb not true/false as we're using attributes in r-simmer which have to be numeric
 
 
