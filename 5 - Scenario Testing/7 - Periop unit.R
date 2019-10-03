@@ -12,7 +12,9 @@ set.seed(12346)
 this.dir <-dirname(parent.frame(2)$ofile)
 setwd(this.dir)
 
+library("lubridate",include.only="round_date")
 library(dplyr)
+library(stringr)
 library(simmer)
 library(simmer.plot)
 library(progress)
@@ -58,7 +60,7 @@ print("* Main data loaded *")
 
 
 
-periop_unit<-filter(elective_spells,str_detect(`Spell Core HRG`,"LB(67C|67D|39C|10C|39D|10D|71Z)|YQ(01|02|03|04|10|11|12|20|21|22|24|31|32)|FF(31|30|12Z|10Z|02|01|32|33)|GA07"))
+periop_unit<-filter(elective_spells,str_detect(`Spell Core HRG`,"LB(67|39|10|71)|YQ(01|02|03|04|10|11|12|20|21|22|24|31|32)|FZ(84|85|73|74|75|76)|GA07"))
 oesophagectomies<-filter(elective_spells,str_detect(`Spell Core HRG`,"FZ(80|81)"))
 periop_bl<-duplicated(c(periop_unit$`_TLSpellDigest`,elective_spells$`_TLSpellDigest`))[-seq_len(length(periop_unit$`_TLSpellDigest`))]
 oesoph_bl<-duplicated(c(oesophagectomies$`_TLSpellDigest`,elective_spells$`_TLSpellDigest`))[-seq_len(length(oesophagectomies$`_TLSpellDigest`))]
@@ -81,30 +83,42 @@ critcare_segments$periop<-FALSE
 critcare_segments$l2days<-as.numeric(critcare_segments$`Critical Care Level 2 Days`)
 critcare_segments$l3days<-as.numeric(critcare_segments$`Critical Care Level 3 Days`)
 
+periopStay<-36*3600 ##36 hours stay
+
 periop_spells<-filter(elective_spells,periop==1)
 for (i in 1:nrow(periop_spells)) {
   if (periop_spells[i,"cc1_row_id"]>0) {
     cc1<-periop_spells[i,"cc1_row_id"]
     if (critcare_segments[cc1,"_SegmentStart_Offset"]<48*3600) {
-      if ((critcare_segments[cc1,"l2days"]+critcare_segments[cc1,"l3days"])<3) {
-        ## came near start and appropriate length - easiest option - just convert the CC stay to a periop stay
+      if ((critcare_segments[cc1,"_SegmentDischReady_Offset"]-critcare_segments[cc1,"_SegmentStart_Offset"])<periopStay) {
+        ## came near start and appropriate length - easiest option - just convert the CC stay to a periop stay, plus any others within time limit
         critcare_segments[cc1,"periop"]<-TRUE
+        cc<-cc1
+        while ((cc>0) && ((critcare_segments[cc,"_SegmentDischReady_Offset"]-critcare_segments[cc1,"_SegmentStart_Offset"])<periopStay)) { ## while we remain within 36hrs of arrival on unit
+          critcare_segments[cc,"periop"]<-TRUE
+          cc<-critcare_segments[cc,"segN_row_id"]
+          if (is.na(cc)) break
+          if (critcare_segments[cc,"_CCTransfer"]==0) break
+        }
+        ## set cc_start (likely already set)
+        spell_id<-elective_spells$`_TLSpellDigest`==periop_spells[i,"_TLSpellDigest"]
+        elective_spells$cc_start[spell_id]<-1
       } else {
         ## came near start but stayed in CC longer - split stay into a periop and the original stay
         row_id<-nrow(critcare_segments)+1
         critcare_segments<-add_row(critcare_segments, `_TLSpellDigest`=periop_spells[i,"_TLSpellDigest"],
                                    `_SegmentStart_Offset`=0,
-                                   `_SegmentEnd_Offset`=48*3600,
-                                   `_SegmentDischReady_Offset`=36*3600,
+                                   `_SegmentEnd_Offset`=periopStay,
+                                   `_SegmentDischReady_Offset`=periopStay, ##36 hours on 
                                    `_CCTransfer`=1,
                                    `_RealCritCare`=TRUE,
                                    periop=TRUE,
                                    segN_row_id=cc1,
                                    row_id=row_id
         )
-        critcare_segments[cc1,"_SegmentStart_Offset"]<-36*3600
-        critcare_segments[cc1,"_SegmentDischReady_Offset"]<-max(as.numeric(critcare_segments[cc1,"_SegmentDischReady_Offset"]),36*3600)
-        critcare_segments[cc1,"_SegmentEnd_Offset"]<-max(as.numeric(critcare_segments[cc1,"_SegmentEnd_Offset"]),36*3600)
+        critcare_segments[cc1,"_SegmentStart_Offset"]<-periopStay
+        critcare_segments[cc1,"_SegmentDischReady_Offset"]<-max(as.numeric(critcare_segments[cc1,"_SegmentDischReady_Offset"]),periopStay)
+        critcare_segments[cc1,"_SegmentEnd_Offset"]<-max(as.numeric(critcare_segments[cc1,"_SegmentEnd_Offset"]),periopStay)
         ##Push row_id back into elective_spells and set cc_start
         spell_id<-elective_spells$`_TLSpellDigest`==periop_spells[i,"_TLSpellDigest"]
         elective_spells$cc1_row_id[spell_id]<-row_id
@@ -116,8 +130,8 @@ for (i in 1:nrow(periop_spells)) {
       row_id<-nrow(critcare_segments)+1
       critcare_segments<-add_row(critcare_segments, `_TLSpellDigest`=periop_spells[i,"_TLSpellDigest"],
                                  `_SegmentStart_Offset`=0,
-                                 `_SegmentEnd_Offset`=36*3600,
-                                 `_SegmentDischReady_Offset`=36*3600,
+                                 `_SegmentEnd_Offset`=periopStay,
+                                 `_SegmentDischReady_Offset`=periopStay,
                                  `_CCTransfer`=0,
                                  `_RealCritCare`=TRUE,
                                  periop=TRUE,
@@ -135,12 +149,12 @@ for (i in 1:nrow(periop_spells)) {
     row_id<-nrow(critcare_segments)+1
     critcare_segments<-add_row(critcare_segments, `_TLSpellDigest`=periop_spells[i,"_TLSpellDigest"],
                                `_SegmentStart_Offset`=0,
-                               `_SegmentEnd_Offset`=36*3600,
-                               `_SegmentDischReady_Offset`=36*3600,
+                               `_SegmentEnd_Offset`=periopStay,
+                               `_SegmentDischReady_Offset`=periopStay,
                                `_CCTransfer`=0,
                                `_RealCritCare`=TRUE,
                                periop=TRUE,
-                               segN_row_id=cc1,
+                               segN_row_id=NA, ##not zero as we only check for NA later
                                row_id=row_id
     )
 
@@ -981,10 +995,10 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-#envs<-future_lapply(1:48,simmer_wrapper)
+envs<-future_lapply(1:4,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
-envs<-simmer_wrapper(1)
+#envs<-simmer_wrapper(1)
 
 print("* Simulation finished *")
 
