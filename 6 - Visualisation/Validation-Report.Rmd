@@ -1,0 +1,214 @@
+---
+title: "Model Validation Report"
+author: "Tom Lawton"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        intermediates_dir=Sys.getenv("TEMP"),
+                        output_dir="../Rmd Outputs/") })
+output:
+  word_document:
+    reference_docx: template.docx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(crop = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(fig.height=4)
+knitr::opts_chunk$set(fig.width=6.5)
+knitr::opts_chunk$set(dpi=200)
+library(readr)
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+library(car)
+library(tidyr)
+
+
+## load data
+scenario<-"1"
+attribs<-readRDS(paste0("../Model Outputs/",scenario,"-attribs.rds"))
+attribs$posixtime<-as.POSIXct(attribs$time,origin="1970-01-01 00:00.00 UTC")
+attribs$posixdate<-as.Date(attribs$posixtime)
+resources<-readRDS(paste0("../Model Outputs/",scenario,"-resources.rds"))
+
+valid_resources<-readRDS("../Model Outputs/validation-resources.rds")
+
+Patients_Cancelled_2015_2019 <- read_csv("../Data - Validation/Patients Cancelled 2015-2019.csv")
+
+```
+## Overall Capacity
+
+``` {r}
+
+start_date<-as.Date("2019-11-30",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.Date("2021-02-01",origin="1970-01-01 00:00.00 UTC")
+
+
+resources2<-dplyr::filter(resources,resource=="bed")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+resources2$date<-as.Date(resources2$time,origin="1970-01-01 00:00.00 UTC")
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-as.Date(round_date(resources_samp$time,unit="day"))
+resources_samp$rwdate<-as.Date(round_date(resources_samp$time,unit="week"))
+
+valid_resources$posixtime<-as.POSIXct(valid_resources$time,origin="1970-01-01 00:00.00 UTC")
+valid_resources$date<-as.Date(valid_resources$posixtime)
+
+##filter out run-in and run-out periods as validation resources produced using ADT entry/exit dates
+valid_resources<-filter(valid_resources,date>as.Date("2016-04-01")) %>% filter(date<as.Date("2018-07-31"))
+
+valid_resources2<-dplyr::filter(valid_resources,resource=="bed")
+valid_resources2$date<-update(valid_resources2$date,year=2020)
+valid_resources_samp<-valid_resources2[sample(nrow(valid_resources2),20000),]
+
+##Wrap around for graphing
+valid_resources_samp_2019<-valid_resources_samp
+valid_resources_samp_2019$date<- update(valid_resources_samp_2019$date,year=2019)
+valid_resources_samp_2021<-valid_resources_samp
+valid_resources_samp_2021$date<- update(valid_resources_samp_2019$date,year=2021)
+
+valid_resources_samp<-rbind(valid_resources_samp_2019,valid_resources_samp,valid_resources_samp_2021)
+
+valid_resources_samp$rwdate<-as.Date(round_date(valid_resources_samp$date,unit="week"))
+# Daily everything with summary graph
+# ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red") + stat_summary(fun.data="mean_sdl",geom="smooth",se=TRUE)  + xlim(start_date,end_date) + ylim(400,700)
+
+
+##Daily points with weekly data for summary graph:
+## Black spots show real data, with grey error bars to show max and min
+
+print(
+  ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+    geom_point(alpha=0.1,shape=16) +
+    scale_color_gradient(low="blue", high="red",guide=FALSE) +
+    stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",size=2,color="blue") +
+    stat_summary(data=valid_resources_samp,aes(x=rwdate,y=server),fun.data=mean_sdl,color="black",alpha=0.2,size=2,shape=" ") +
+    stat_summary(data=valid_resources_samp,aes(x=rwdate,y=server),fun.y=mean,geom="point",color="black",alpha=1,size=3) +
+    #stat_summary(data=valid_resources_samp,aes(x=rwdate,y=server),fun.y=mean,geom="point",color="black",shape=16,size=5) +
+    #stat_summary(data=valid_resources_samp,aes(x=rwdate,y=server),fun.y=min,geom="point",color="black",shape=45,size=10) +
+    #stat_summary(data=valid_resources_samp,aes(x=rwdate,y=server),fun.y=max,geom="point",color="black",shape=45,size=10) +
+    xlim(start_date,end_date) +
+    ylim(400,700) +
+    labs(x="Date",y="Beds") +
+    theme_bw(base_size=12)+
+    ggtitle("Real and modelled bed use")
+)
+
+```
+
+**Overnight beds only**
+* *Blue line* - average model bed use
+* *Red spots* - individual model runs
+* *Black spots* - average real bed use
+* *Grey bars* - range of real bed use
+
+## Elective Surgery Cancellations
+
+### Cancellation Density
+
+```{r}
+
+start_date<-as.Date("2019-11-30",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.Date("2021-01-01",origin="1970-01-01 00:00.00 UTC")
+
+patients<-Patients_Cancelled_2015_2019
+#patients<-filter(patients,!grepl("15",`Fin Year`)) ##Exploring as 2015 was a very bad year
+
+patients$date<-as.Date(patients$Date,format="%d %b %Y")
+patients$year<-decimal_date(patients$date)
+patients$partyear<-patients$year-floor(patients$year)+2020
+
+##replicate for the year before and after for wrapping around
+test<-data.frame(partyear=c(patients$partyear-1,patients$partyear,patients$partyear+1))
+test$posixtime<-date_decimal(test$partyear)
+test$posixdate<-as.Date(test$posixtime)
+
+attribs2<-dplyr::filter(attribs,key=="Elective_OTD_Cancellations")
+attribs2$year<-decimal_date(attribs2$posixtime)
+
+##nb use bw rather than adjust for the group plot as it calculates bw for each plot individually and gets some funny results occasionally
+##weights used so that each plot has the same weight per patient (otherwise it's effectively normalised by dividing by the total number of patients)
+##1/48 for main data (ie reps), 1/4 for the cancellation data (4 years), 1 for the individual years
+##nb not ignoring weights despite what it says!
+print(
+  ggplot(attribs2) +
+    stat_density(aes(x=posixdate,y=stat(density),group=replication,colour="Model Run",weight=1),geom="line",position="identity",bw=18,alpha=0.2)  +
+    stat_density(aes(x=posixdate,weight=1/48,colour="Model Average"),size=2,geom="line",adjust=0.3) +
+    stat_density(data=test,aes(x=posixdate,weight=1/4,colour="Real Average"),adjust=0.3,geom="line",size=2) +
+    xlim(start_date,end_date)+
+    scale_colour_manual(name="Line Colour",values=c("Model Average"="black","Real Average"="darkred","Model Run"="darkblue"))+
+    theme_bw(base_size=12)+
+    xlab("Date")+
+    ylab("Density")+
+    ggtitle("Density plot of OTD Cancellations")
+)
+
+```
+
+### Cancellation Numbers
+
+```{r}
+patients<-Patients_Cancelled_2015_2019
+#patients<-filter(patients,!grepl("15",`Fin Year`)) ##Exploring as 2015 was a very bad year
+
+
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t3<-t-t2
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+
+max_attribs<-filter(max_attribs,!grepl("Open",key))
+#print(ggplot(max_attribs,aes(x=key,y=value,fill=key)) + geom_boxplot() + stat_summary(fun.y=mean, geom="point", shape=23,size=6)+ theme_bw(base_size=16) )
+
+max_patients<-patients %>% group_by(`Fin Year`) %>% tally()
+max_patients$key<-"OTD Cancellations"
+#print(ggplot(max_patients,aes(x=key,y=n,fill=key)) + geom_boxplot() + stat_summary(fun.y=mean, geom="point", shape=23,size=6)+ theme_bw(base_size=16) )
+
+temp<-filter(max_attribs,key=="Elective_OTD_Cancellations") %>% 
+  subset(select=-c(replication))
+temp$key<-"Model OTD Cancellations"
+temp2<-subset(max_patients,select=-c(`Fin Year`)) %>%
+  dplyr::rename(value=n)
+temp2$key<-"Real OTD Cancellations"
+cancellations<-bind_rows(temp,temp2)
+
+# 
+# print(
+#   ggplot(cancellations,aes(x=key,y=value,fill=key)) +
+#     geom_boxplot() +
+#     stat_summary(fun.y=mean, geom="point", shape=23,size=6)+
+#     guides(fill=FALSE)+
+#     labs(x="",y="Per year") +
+#     theme_bw(base_size=24)
+# )
+
+
+print(ggplot(cancellations,aes(x=key,y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        labs(x="",y="Per year") +
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Baseline vs Real Cancellations") )
+
+```
