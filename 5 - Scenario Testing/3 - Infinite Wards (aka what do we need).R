@@ -232,7 +232,8 @@ iterate  <- function() {
 
 simmer_wrapper <- function(i) {
   
-  
+  load_rmetrics_calendars(2000:2022) ##loaded again as the lack of Windows fork() means it's not copied
+  sourceCpp("1RcppFunctions.cpp")
   
   emergency_table<- emergency_gen_table()
   
@@ -855,8 +856,8 @@ library(pbmcapply)
 ##nb not parallel on windows because of lack of fork()
 ##parallelsugar doesn't work properly because environment isn't copied correctly
 
-#library(future.apply)
-#plan(multiprocess)
+library(future.apply)
+plan(multiprocess)
 ##future.apply also doesn't work properly as it needs things like the calendars reinitialising for each process. See model #4 for how to do this (with doParallel)
 
 
@@ -864,8 +865,8 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-#envs<-future_lapply(1:4,simmer_wrapper)
-envs<-pbmclapply(1:24,simmer_wrapper,mc.cores=4)
+envs<-future_lapply(1:48,simmer_wrapper)
+#envs<-pbmclapply(1:24,simmer_wrapper,mc.cores=4)
 
 #envs<-simmer_wrapper(1)
 

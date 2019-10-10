@@ -22,7 +22,7 @@ library(Rcpp)
 select<-simmer::select
 library(timeDate)
 library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
-library(lubridate,exclude=c("now","rollback"))
+library(lubridate,include.only=c("hour<-"))
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
 
 
@@ -868,21 +868,21 @@ simmer_wrapper <- function(i) {
 }
 
 #library(parallel)
-library(pbmcapply)
+#library(pbmcapply)
 
 ##nb not parallel on windows because of lack of fork()
 ##parallelsugar doesn't work properly because environment isn't copied correctly
 
-#library(future.apply)
-#plan(multiprocess)
+library(future.apply)
+plan(multiprocess)
 ##future.apply also doesn't work properly as it needs things like the calendars reinitialising for each process. See model #4 for how to do this (with doParallel)
 
 
 print("* Simulation started (no output) *")
 
-envs<-pbmclapply(1:48,simmer_wrapper,mc.cores=8)
+#envs<-pbmclapply(1:48,simmer_wrapper,mc.cores=8)
 
-#envs<-future_lapply(1:48,simmer_wrapper)
+envs<-future_lapply(1:48,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 #envs<-simmer_wrapper(1)
