@@ -27,7 +27,7 @@ select<-simmer::select
 library(timeDate)
 library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
-
+library(lubridate,include.only=c("round_date"))
 
 ## files generated in step 2. Need to ensure dates match up with the two generators!
 emergency_freq <- readRDS("../Data - For Modelling/Emergency-Frequency.rds")
@@ -886,10 +886,10 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-#envs<-future_lapply(1:48,simmer_wrapper)
+envs<-future_lapply(1:48,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
-envs<-simmer_wrapper(1)
+#envs<-simmer_wrapper(1)
 
 print("* Simulation finished *")
 
