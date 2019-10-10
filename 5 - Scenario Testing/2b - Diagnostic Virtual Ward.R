@@ -741,104 +741,7 @@ simmer_wrapper <- function(i) {
     join(common_patient)
   
   
-  ward_control_open_17Esc<-trajectory() %>% 
-    log_("Opening 17Esc") %>% 
-    set_global("17Esc_Open",1) %>% 
-    set_capacity("17Esc",24)
-  
-  ward_control_close_17Esc<-trajectory() %>% 
-    log_("Closing 17Esc") %>% 
-    set_global("17Esc_Open",0) %>% 
-    set_capacity("17Esc",0)  
-  
-  ward_control_open_12Esc<-trajectory() %>% 
-    log_("Opening 12Esc") %>% 
-    set_global("12Esc_Open",1) %>% 
-    set_capacity("12Esc",3)
-  
-  ward_control_close_12Esc<-trajectory() %>% 
-    log_("Closing 12Esc") %>% 
-    set_global("12Esc_Open",0) %>% 
-    set_capacity("12Esc",0)  
-  
-  ward_control_open_AMU4Esc<-trajectory() %>% 
-    log_("Opening AMU4Esc") %>% 
-    set_global("AMU4Esc_Open",1) %>%
-    set_capacity("AMU4Esc",3)
-  
-  ward_control_close_AMU4Esc<-trajectory() %>% 
-    log_("Closing AMU4Esc") %>% 
-    set_global("AMU4Esc_Open",0) %>%
-    set_capacity("AMU4Esc",0)  
-  
-  ward_control_open_22Esc<-trajectory() %>% 
-    log_("Opening 22Esc") %>% 
-    set_global("22Esc_Open",1) %>%
-    set_capacity("22Esc",6)
-  
-  ward_control_close_22Esc<-trajectory() %>% 
-    log_("Closing 22Esc") %>% 
-    set_global("22Esc_Open",0) %>%
-    set_capacity("22Esc",0)  
-  
-  ward_control_open_18Esc<-trajectory() %>% 
-    log_("Opening 18Esc") %>% 
-    set_global("18Esc_Open",1) %>%
-    set_capacity("18Esc",2)
-  
-  ward_control_close_18Esc<-trajectory() %>% 
-    log_("Closing 18Esc") %>% 
-    set_global("18Esc_Open",0) %>%
-    set_capacity("18Esc",0)  
-  
-  ward_control<-trajectory() %>% 
-    set_capacity("17Esc",0) %>% 
-    #set_capacity("CDU",0) %>% 
-    set_capacity("AMU4Esc",0) %>% 
-    set_capacity("18Esc",0) %>% 
-    set_capacity("12Esc",0) %>% 
-    set_capacity("22Esc",0) %>% 
-    timeout(24*3600) %>% 
-    branch(function() {
-      beds<-get_server_count(env,"bed")
-      open17<-(get_capacity(env,"17Esc")>0)
-      if (beds>580 && !open17) return(1)
-      if (beds<520 && open17) return(2)
-      return(0)
-    },ward_control_open_17Esc,ward_control_close_17Esc,continue=TRUE) %>% 
-    branch(function() {
-      beds<-get_server_count(env,"bed")
-      open12<-(get_capacity(env,"12Esc")>0)
-      if (beds>570 && !open12) return(1)
-      if (beds<510 && open12) return(2)
-      return(0)
-    },ward_control_open_12Esc,ward_control_close_12Esc,continue=TRUE) %>% 
-    branch(function() {
-      amu4q<-get_queue_count(env,"AMU4")
-      openAMU4<-(get_capacity(env,"AMU4Esc")>0)
-      if (amu4q>1 && !openAMU4) return(1)
-      if (amu4q==0 && openAMU4) return(2)
-      return(0)
-    },ward_control_open_AMU4Esc,ward_control_close_AMU4Esc,continue=TRUE) %>% 
-    branch(function() {
-      beds22<-get_server_count(env,"22")
-      open22<-(get_capacity(env,"22Esc")>0)
-      if (beds22==24 && !open22) return(1)
-      if (beds22<22 && open22) return(2)
-      return(0)
-    },ward_control_open_22Esc,ward_control_close_22Esc,continue=TRUE) %>% 
-    branch(function() {
-      beds<-get_server_count(env,"bed")
-      open18<-(get_capacity(env,"18Esc")>0)
-      if (beds>560 && !open18) return(1)
-      if (beds<500 && open18) return(2)
-      return(0)
-    },ward_control_open_18Esc,ward_control_close_18Esc,continue=TRUE) %>% 
-    
-    
-    
-    
-    rollback(6) ##to timeout
+  source("WardController.R",local=TRUE) ## local=TRUE keeps it within the wrapper
   
   
   
@@ -848,13 +751,17 @@ simmer_wrapper <- function(i) {
     add_generator("Ward Controller",ward_control,at(as.numeric(elective_freq[1,]$dateTime)+7*3600)) %>%  ## start 7am on first day
     add_resource("bed",capacity=Inf,queue_size=0,queue_size_strict=TRUE)
   
+  beds_open<-0  
   
   for (i in 1:nrow(wards)) {
     add_resource(env,wards[i,"Ward"],capacity=wards[i,"Beds"],queue_size=Inf,queue_priority=c(i*10,i*10+9))
+    beds_open<-beds_open+wards[i,"Beds"]
     ## no longer using queue_size_strict, instead we use queue_priority to ensure that the arrival doesn't enter the queue unless we specifically want it to happen
     ## queue priority for each ward is i*10 to i*10+9
-    print(paste0(wards[i,"Ward"],":",wards[i,"Beds"]))
+    # print(paste0(wards[i,"Ward"],":",wards[i,"Beds"]))
   }
+  
+  env %>% add_global("Beds_Open",beds_open)
   
   
   

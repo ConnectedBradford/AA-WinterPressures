@@ -1,5 +1,5 @@
 
-wards<-read.csv("../4 - Model 2 - real data/Wards.csv", header=TRUE,sep=",")
+wards<-read.csv("Wards.csv", header=TRUE,sep=",")
 
 ##dataframe - Ward, Beds, Restrictions, Surge
 ##Ward = name
