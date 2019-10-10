@@ -1,6 +1,6 @@
 ## Scenario 7 - periop unit
 
-
+## Baseline to determine use - infinite beds
 
 ## Inputs 
 ##  (1) Generated frequency of admissions (time of change, rate as patients/24hrs, for elective and emergency care)
@@ -12,7 +12,6 @@ set.seed(12346)
 this.dir <-dirname(parent.frame(2)$ofile)
 setwd(this.dir)
 
-library("lubridate",include.only="round_date")
 library(dplyr)
 library(stringr)
 library(simmer)
@@ -24,7 +23,7 @@ select<-simmer::select
 library(timeDate)
 library(bizdays) ##this library is way quicker than timeDate (but we have to use timeDate's calendars for some reason)
 load_rmetrics_calendars(2000:2022) ##nb we only get these holidays so may need extending in future
-
+library(lubridate,include.only=c("round_date"))
 
 ## files generated in step 2. Need to ensure dates match up with the two generators!
 emergency_freq <- readRDS("../Data - For Modelling/Emergency-Frequency.rds")
@@ -60,10 +59,13 @@ print("* Main data loaded *")
 
 
 
-periop_unit<-filter(elective_spells,str_detect(`Spell Core HRG`,"LB(67|39|10|71)|YQ(01|02|03|04|10|11|12|20|21|22|24|31|32)|FZ(84|85|73|74|75|76)|GA07"))
+#periop_unit<-filter(elective_spells,str_detect(`Spell Core HRG`,"LB(67|39|10|71)|YQ(01|02|03|04|10|11|12|20|21|22|24|31|32)|FZ(84|85|73|74|75|76)|GA07"))
+periop_unit<-filter(elective_spells,str_detect(`Spell Core HRG`,"CA(80(A|B)|90Z)|CB01(A|B)|FZ(12(M|L)|66(C|D)|69(C|D|E)|77C|79(C|D)|83(G|H)|84|92(A|B)|73|74|75|76)|GA07|JA(20D|32|33|36|37)|LB(67|39|10|71)|YQ(01|02|03|04|10|11|12|20|21|22|24|31|32)"))
 oesophagectomies<-filter(elective_spells,str_detect(`Spell Core HRG`,"FZ(80|81)"))
 periop_bl<-duplicated(c(periop_unit$`_TLSpellDigest`,elective_spells$`_TLSpellDigest`))[-seq_len(length(periop_unit$`_TLSpellDigest`))]
 oesoph_bl<-duplicated(c(oesophagectomies$`_TLSpellDigest`,elective_spells$`_TLSpellDigest`))[-seq_len(length(oesophagectomies$`_TLSpellDigest`))]
+
+table(periop_unit$`Spell Core HRG`)
 
 elective_spells$periop<-0
 elective_spells$periop[periop_bl]<-1
@@ -995,7 +997,7 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-envs<-future_lapply(1:4,simmer_wrapper)
+envs<-future_lapply(1:48,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 #envs<-simmer_wrapper(1)
