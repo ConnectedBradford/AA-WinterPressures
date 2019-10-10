@@ -16,6 +16,7 @@ output:
 knitr::opts_chunk$set(warning = FALSE)
 knitr::opts_chunk$set(crop = TRUE)
 knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(cache = FALSE)
 knitr::opts_chunk$set(fig.height=4)
 knitr::opts_chunk$set(fig.width=6.5)
@@ -102,6 +103,7 @@ print(
 ```
 
 **Overnight beds only**
+
 * *Blue line* - average model bed use
 * *Red spots* - individual model runs
 * *Black spots* - average real bed use
@@ -168,16 +170,18 @@ end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
   group_by(key,replication) %>%
   summarise(value=max(value))
 t<-`max_attribs_end` %>% 
+  filter(!grepl("Open|Full",key)) %>% 
   arrange(replication) %>% 
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t2<-`max_attribs_start` %>% 
+  filter(!grepl("Open|Full",key)) %>% 
   arrange(replication) %>% 
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t3<-t-t2
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 
-max_attribs<-filter(max_attribs,!grepl("Open",key))
+#<-filter(max_attribs,!grepl("Open",key))
 #print(ggplot(max_attribs,aes(x=key,y=value,fill=key)) + geom_boxplot() + stat_summary(fun.y=mean, geom="point", shape=23,size=6)+ theme_bw(base_size=16) )
 
 max_patients<-patients %>% group_by(`Fin Year`) %>% tally()
@@ -204,7 +208,7 @@ cancellations<-bind_rows(temp,temp2)
 
 
 print(ggplot(cancellations,aes(x=key,y=value,fill=key)) +
-        geom_boxplot() +
+        geom_dotplot(binaxis="y",stackdir="center") +
         stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
         theme_bw(base_size=12)+
         labs(x="",y="Per year") +
