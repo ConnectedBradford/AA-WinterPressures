@@ -273,24 +273,12 @@ simmer_wrapper <- function(i) {
  
   print("* patients generated *")
   
-  # ## spread surgery during those periods around the quieter period
-  # elective_table<-
-  #   elective_table %>% 
-  #   mutate(time_at=if_else((month(idx_datetime)==4) && (runif(1)>0.5),time_at+2*28*24*3600,time_at)) %>% 
-  #   mutate(time_at=if_else((month(idx_datetime)==5) && (runif(1)>0.5),time_at+2*28*24*3600,time_at)) %>% 
-  #   mutate(time_at=if_else((month(idx_datetime)==10) && (runif(1)>0.5),time_at-2*28*24*3600,time_at)) %>% 
-  #   mutate(time_at=if_else((month(idx_datetime)==11) && (runif(1)>0.5),time_at-2*28*24*3600,time_at))
-  # 
   
-  
-  
-  ## no surgery during those periods, move it by 8 weeks
+  ## move 50% of surgery by 12 weeks during march/april
   elective_table<-
     elective_table %>% 
-    mutate(time_at=if_else(month(idx_datetime)==4,time_at+2*28*24*3600,time_at)) %>% 
-    mutate(time_at=if_else(month(idx_datetime)==5,time_at+2*28*24*3600,time_at)) %>% 
-    mutate(time_at=if_else(month(idx_datetime)==10,time_at-2*28*24*3600,time_at)) %>% 
-    mutate(time_at=if_else(month(idx_datetime)==11,time_at-2*28*24*3600,time_at))
+    mutate(time_at=if_else((month(idx_datetime)==3) & (runif(n())>0.5),time_at+3*28*24*3600,time_at)) %>%
+    mutate(time_at=if_else((month(idx_datetime)==4) & (runif(n())>0.5),time_at+3*28*24*3600,time_at))
   
 
   ##recalculate gaps (as that's what drives simmer)
