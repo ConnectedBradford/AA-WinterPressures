@@ -1,0 +1,377 @@
+---
+title: "Demand Report (Infinite Wards)"
+author: "Tom Lawton"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        intermediates_dir=Sys.getenv("TEMP"),
+                        output_dir="../Rmd Outputs/") })
+output:
+  word_document:
+    reference_docx: template.docx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(crop = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(fig.height=4)
+knitr::opts_chunk$set(fig.width=6.5)
+knitr::opts_chunk$set(dpi=200)
+##knitr::opts_chunk$set(eval = FALSE)
+#knitr::opts_chunk$set(dev='win.metafile')
+##options(tinytex.verbose = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(stringr)
+
+loadnameRDS<-function(filename) {
+  dfname<-gsub(basename(filename),pattern=".rds$",replacement="")
+  temp<-readRDS(filename)
+  if (grepl("attrib",dfname)) {
+    temp<-temp %>% 
+      mutate(key=str_replace_all(key,c(
+        "21CC_Elective_OTD_Cancellations" = "Cancellations from Wd21",
+        "ICU_Elective_OTD_Cancellations" = "Cancellations from HDU/ICU",
+        "Periop_Elective_OTD_Cancellations" = "Cancellations from Periop",
+        "Elective_OTD_Cancellations" = "Elective OTD Cancellations", ## must be last or matches the earlier ones
+        "ICU_Admissions_12H_Delayed" = "ICU Admissions delayed 12hr",
+        "21CC_Admissions_12H_Delayed" = "Wd21 Admissions delayed 12hr",
+        "Periop_Admissions_12H_Delayed" = "Periop Admissions delayed 12hr",
+        "CC_Discharges_24H_Delayed" = "Ward Discharges delayed 24hr"
+      )))
+  }
+  assign(dfname,temp,envir=.GlobalEnv)
+}
+filenames <- list.files("../Model Outputs/",pattern="^(3).*rds",full.names=TRUE)
+invisible(lapply(filenames,loadnameRDS))
+
+resources<-`3-resources`
+
+patient_types<-resources %>%
+  filter(str_detect(resource,"Traj-[[:digit:]]")) %>%  ##ignore traj-init
+  select(c("resource","time","server","replication")) %>% 
+  group_by(resource, replication) %>%
+  mutate(server = diff(c(0, server))) %>%
+  ungroup() %>%
+  mutate(resource = ifelse(grepl("(-1$|-1001$|-99$|-1000$|-10001$)", resource), "Gen Surgical (inc SAU)", resource)) %>%
+  mutate(resource = ifelse(grepl("(-2$|-1008$)", resource), "Urology", resource)) %>%
+  mutate(resource = ifelse(grepl("(-3$|-1005$)", resource), "MaxFax", resource)) %>%
+  mutate(resource = ifelse(grepl("(-4$|-1006$)", resource), "Plastics", resource)) %>%
+  mutate(resource = ifelse(grepl("(-5$|-1004$)", resource), "ENT", resource)) %>%
+  mutate(resource = ifelse(grepl("(-7$|-1003$)", resource), "Orthopaedics", resource)) %>%
+  mutate(resource = ifelse(grepl("(-8$|-1010$)", resource), "Ophthalmics", resource)) %>%
+  mutate(resource = ifelse(grepl("(-9$|-1002$)", resource), "Vascular", resource)) %>%
+  mutate(resource = ifelse(grepl("(-10$|-1009$)", resource), "Breast", resource)) %>%
+  mutate(resource = ifelse(grepl("(-11$|-1007$)", resource), "Gynaecology", resource)) %>%
+  mutate(resource = ifelse(grepl("(-100$|-1100$|-10002$|-199$|-999$)", resource), "Gen Medicine (inc MAU)", resource)) %>%
+  mutate(resource = ifelse(grepl("(-101$|-1101$)", resource), "Gastro/Hepatology", resource)) %>%
+  mutate(resource = ifelse(grepl("(-102$|-1109$)", resource), "Endocrine", resource)) %>%
+  mutate(resource = ifelse(grepl("(-1103$|-103$)", resource), "Cardiology", resource)) %>%  
+  mutate(resource = ifelse(grepl("(-1104$|-104$)", resource), "Respiratory", resource)) %>%   
+  mutate(resource = ifelse(grepl("(-105$|-1110$)", resource), "Infectious Diseases", resource)) %>%
+  mutate(resource = ifelse(grepl("(-106$|-1102$)", resource), "Haematology", resource)) %>%
+  mutate(resource = ifelse(grepl("(-1106$|-107$)", resource), "Stroke/Neurology", resource)) %>%  
+  mutate(resource = ifelse(grepl("(-1111$|-108$)", resource), "Renal", resource)) %>%
+  mutate(resource = ifelse(grepl("(-109$|-1105$)", resource), "Oncology", resource)) %>%
+  mutate(resource = ifelse(grepl("(-110$|-111$|-1108$|-6$)", resource), "Geriatrics/Orthogeriatrics", resource)) %>%
+  mutate(resource = ifelse(grepl("(-1200$|-10003$|-200$)", resource), "Paediatrics", resource)) %>%
+  mutate(resource = ifelse(grepl("(-1011$)", resource), "Pain", resource)) %>%
+  mutate(resource = ifelse(grepl("(-1107$)", resource), "Rheumatology", resource)) %>%
+  group_by(resource, replication) %>%
+  mutate(server = cumsum(server))
+
+
+
+elective_emergency<-resources %>%
+  filter(str_detect(resource,"Traj-[[:digit:]]")) %>%  ##ignore traj-init
+  select(c("resource","time","server","replication")) %>% 
+  group_by(resource, replication) %>%
+  mutate(server = diff(c(0, server))) %>%
+  ungroup() %>%
+  mutate(resource = ifelse(grepl("Traj-[[:digit:]]{4}$", resource), "Elective", "Non-Elective")) %>%
+  group_by(resource, replication) %>%
+  mutate(server = cumsum(server))
+
+```
+
+```{r}
+patient_type_graph<-function(type) {
+  cat(paste0("\n\n### ",type,"\n\n\n"))
+  resources2<-filter(patient_types,resource==type)
+  resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+  ##Take a sample so that ggplot can do this in under an hour!
+  if (nrow(resources2)>50000) {
+    resources_samp<-resources2[sample(nrow(resources2),50000),]
+  } else {
+    resources_samp<-resources2
+  }
+  resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+  resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+  
+  print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+          geom_point(alpha=0.1,shape=16) +
+          scale_color_gradient(low="blue", high="red",guide=FALSE) +
+          stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE,size=2)  +
+          xlim(start_date,end_date)  +
+          labs(x="Date",y="Beds") + theme_bw(base_size=12) +
+          ggtitle(paste0("Scenario 3 ",type)))
+}
+```
+
+## Explanation of graphs
+
+### Beds
+* red/blue dots - individual runs
+* blue line - average across all runs
+* grey area - roughly 95% confidence interval
+
+### Cancellations
+* Elective_OTD_Cancellations is the total for a year
+* Within that are listed "special" cancellations - eg due to lack of beds on ICU, 21CC (monitored beds on 21), Periop unit
+* Special cancellations show the kind of bed the patient was originally looking for, though they won't have been cancelled if they could have gone elsewhere (eg Periop patient would have gone to ICU if there had been a bed)
+
+### Delays
+* Number of patients severely delayed getting out of a critical care bed (includes 21 monitored), or getting into a critical care bed and its type
+
+## Infinite beds - ie capacity testing (scenario 3)
+
+### Occupancy (total)
+
+``` {r}
+start_date<-as.POSIXct("2019-10-01",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+resources2<-dplyr::filter(`3-resources`,resource=="bed")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+
+# Daily everything with summary graph
+# ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red") + stat_summary(fun.data="mean_sdl",geom="smooth",se=TRUE)  + xlim(start_date,end_date) + ylim(400,700)
+
+
+##Daily points with weekly data for summary graph:
+#resources4$rwdate<-round_date(resources4$time,unit="week")
+ print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+         geom_point(alpha=0.1,shape=16) +
+         scale_color_gradient(low="blue", high="red",guide=FALSE) +
+         stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE,size=2)  +
+         xlim(start_date,end_date) +
+         ylim(400,700) +labs(x="Date",y="Beds") +
+         theme_bw(base_size=12)+
+        ggtitle("Infinite whole-hospital occupancy") )
+
+```
+
+### Elective/Non-Elective
+
+```{r}
+resources2<-elective_emergency
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+
+print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+        geom_point(alpha=0.3,shape=".") +
+        scale_color_gradient(low="blue", high="red",guide=FALSE) +
+        stat_summary(aes(x=rwdate,y=server,fill=resource),fun.data="mean_sdl",geom="smooth",se=TRUE,size=1.5)  +
+        guides(fill=guide_legend(reverse=TRUE)) +
+        xlim(start_date,end_date)  +
+        labs(x="Date",y="Beds",fill="Type") + theme_bw(base_size=12)+
+        ggtitle("Scenario 3 Elective vs Non-Elective"))
+```
+
+## Medical
+
+```{r,results="asis"}
+patient_type_graph("Gen Medicine (inc MAU)")
+cat("\\\nVast majority of this is MAU\\\n")
+patient_type_graph("Geriatrics/Orthogeriatrics")
+patient_type_graph("Respiratory")
+patient_type_graph("Gastro/Hepatology")
+patient_type_graph("Infectious Diseases")
+cat("\\\nHajj:\\\n1436 	2015, 23 September\\\n1437 	2016, 11 September\\\n1438 	2017, 31 August\\\n1439 	2018, 20 August\\\n")
+patient_type_graph("Cardiology")
+patient_type_graph("Renal")
+patient_type_graph("Endocrine")
+patient_type_graph("Haematology")
+patient_type_graph("Oncology")
+patient_type_graph("Stroke/Neurology")
+```
+
+## Surgical
+
+```{r,results="asis"}
+
+patient_type_graph("Gen Surgical (inc SAU)")
+patient_type_graph("Urology")
+patient_type_graph("Vascular")
+patient_type_graph("Orthopaedics")
+patient_type_graph("Gynaecology")
+patient_type_graph("Breast")
+patient_type_graph("ENT")
+patient_type_graph("MaxFax")
+
+```
+
+## Paediatrics
+
+```{r,results="asis"}
+
+patient_type_graph("Paediatrics")
+
+
+```
+
+## Critical Care Areas
+
+### Surgical Higher Dependency - Use of 21 Critical Care
+
+```{r}
+resources2<-filter(`3-resources`,resource=="21CC")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+
+print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+        geom_point(alpha=0.1,shape=16) +
+        scale_color_gradient(low="blue", high="red",guide=FALSE) +
+        stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE,size=2)  +
+        xlim(start_date,end_date)  +
+        labs(x="Date",y="Beds") + theme_bw(base_size=12)+
+        ggtitle("Scenario 3 21CC Occupancy"))
+```
+
+### Critical Care - Use of Critical Care Unit
+
+```{r}
+resources2<-filter(`3-resources`,resource=="ICU")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+
+print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+        geom_point(alpha=0.1,shape=16) +
+        scale_color_gradient(low="blue", high="red",guide=FALSE) +
+        stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE,size=2)  +
+        xlim(start_date,end_date)  +
+        labs(x="Date",y="Beds") + theme_bw(base_size=12)+
+        ggtitle("Scenario 3 Critical Care Unit Occupancy"))
+```
+
+
+
+
+
+```{r}
+
+
+# 
+# combine_resources_to_xts<-function(data,resources) {
+#   xts<-xts()
+#   for (res in resources) {
+#     print(res)
+#     tmp2<-filter(data,resource==res)
+#     print(nrow(tmp2))
+#     xts2<-to.period(xts(x=tmp2$server,order.by=tmp2$rtime),"days")
+#     if (length(xts)>0) {
+#       xts_union<-na.locf(merge(xts,index(xts2)))
+#       xts2_union<-na.locf(merge(xts2,index(xts)))
+#       xts<-xts_union+xts2_union
+#     } else {
+#       xts<-xts2
+#     }
+#   }
+#   names(xts)<-c("Open","High","Low","Close")
+#   return(xts)
+# }
+# 
+# 
+# tmp2<-select(tmp,c("replication","resource","server","rtime"))
+# 
+# 
+# 
+# test<-resources %>% 
+#   filter(str_detect(resource,"(ICU|AMU1)")) %>% 
+#   group_by(replication,resource) %>% 
+#   complete(rtime=seq(min(rtime),max(rtime),by="day")) %>% 
+#   group_by(replication,resource,rtime) %>% 
+#   summarize(mean(server)) %>% 
+#   fill("mean(server)") %>% 
+#   group_by(replication,rtime) %>% 
+#   summarize(sum(`mean(server)`))
+# 
+# test$date<-as.Date(as.character(test$rtime))
+# 
+# patient_types<-resources %>%
+#   filter(str_detect(resource,"Traj-[[:digit:]]")) %>%  ##ignore traj-init
+#   select(c("resource","time","server","replication")) %>% 
+#   group_by(resource, replication) %>%
+#   mutate(server = diff(c(0, server))) %>%
+#   ungroup() %>%
+#   mutate(resource = ifelse(grepl("(-1$|-1001$|-99$|-1000$|-10001$)", resource), "Gen Surgical (inc SAU)", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-2$|-1008$)", resource), "Urology", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-3$|-1005$)", resource), "MaxFax", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-4$|-1006$)", resource), "Plastics", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-5$|-1004$)", resource), "ENT", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-7$|-1003$)", resource), "Orthopaedics", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-8$|-1010$)", resource), "Ophthalmics", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-9$|-1002$)", resource), "Vascular", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-10$|-1009$)", resource), "Breast", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-11$|-1007$)", resource), "Gynae", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-100$|-1100$|-10002$|-199$|-999$)", resource), "Gen Medicine (inc MAU)", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-101$|-1101$)", resource), "Gastro/Hepatology", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-102$|-1109$)", resource), "Endocrine", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-1103$|-103$)", resource), "Cardiology", resource)) %>%  
+#   mutate(resource = ifelse(grepl("(-1104$|-104$)", resource), "Respiratory", resource)) %>%   
+#   mutate(resource = ifelse(grepl("(-105$|-1110$)", resource), "Infectious Diseases", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-106$|-1102$)", resource), "Haematology", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-1106$|-107$)", resource), "Stroke/Neurology", resource)) %>%  
+#   mutate(resource = ifelse(grepl("(-1111$|-108$)", resource), "Renal", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-109$|-1105$)", resource), "Oncology", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-110$|-111$|-1108$|-6$)", resource), "Geriatrics/Orthogeriatrics", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-1200$|-10003$|-200$)", resource), "Paediatrics", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-1011$)", resource), "Pain", resource)) %>%
+#   mutate(resource = ifelse(grepl("(-1107$)", resource), "Rheumatology", resource)) %>%
+#   group_by(resource, replication) %>%
+#   mutate(server = cumsum(server))
+# 
+# 
+# elective_emergency<-resources %>%
+#   filter(str_detect(resource,"Traj-[[:digit:]]")) %>%  ##ignore traj-init
+#   select(c("resource","time","server","replication")) %>% 
+#   group_by(resource, replication) %>%
+#   mutate(server = diff(c(0, server))) %>%
+#   ungroup() %>%
+#   mutate(resource = ifelse(grepl("Traj-[[:digit:]]{4}$", resource), "Elective", "Non-Elective")) %>%
+#   group_by(resource, replication) %>%
+#   mutate(server = cumsum(server))
+# 
+# tmp<-head(resources,20000)
+# tmp$rtime<-round_date(tmp$time,unit="day")
+# tmp_ICU<-filter(tmp,resource=="ICU")
+# tmp_AMU<-filter(tmp,resource=="AMU1")
+# xts_ICU<-to.period(xts(x=tmp_ICU$server,order.by=tmp_ICU$rtime),"days")
+# xts_AMU<-to.period(xts(x=tmp_AMU$server,order.by=tmp_AMU$rtime),"days")
+# xts_ICU_union<-na.locf(merge(xts_ICU,index(xts_AMU)))
+# xts_AMU_union<-na.locf(merge(xts_AMU,index(xts_ICU)))
+# xts_total_union<-xts_ICU_union+xts_AMU_union
+# 
+
+```

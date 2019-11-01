@@ -1,0 +1,651 @@
+---
+title: "Report on Patient Flow Scenarios"
+author: "Tom Lawton"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+knit: (function(inputFile, encoding) { 
+      rmarkdown::render(inputFile,
+                        encoding=encoding,
+                        intermediates_dir=Sys.getenv("TEMP"),
+                        output_dir="../Rmd Outputs/") })
+output:
+  word_document:
+    reference_docx: template.docx
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(crop = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+knitr::opts_chunk$set(fig.height=4)
+knitr::opts_chunk$set(fig.width=6.5)
+knitr::opts_chunk$set(dpi=200)
+##knitr::opts_chunk$set(eval = FALSE)
+#knitr::opts_chunk$set(dev='win.metafile')
+##options(tinytex.verbose = TRUE)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(stringr)
+
+loadnameRDS<-function(filename) {
+  dfname<-gsub(basename(filename),pattern=".rds$",replacement="")
+  temp<-readRDS(filename)
+  if (grepl("attrib",dfname)) {
+    temp<-temp %>% 
+      mutate(key=str_replace_all(key,c(
+        "21CC_Elective_OTD_Cancellations" = "Cancellations from Wd21",
+        "ICU_Elective_OTD_Cancellations" = "Cancellations from HDU/ICU",
+        "Periop_Elective_OTD_Cancellations" = "Cancellations from Periop",
+        "Elective_OTD_Cancellations" = "Elective OTD Cancellations", ## must be last or matches the earlier ones
+        "ICU_Admissions_12H_Delayed" = "ICU Admissions delayed 12hr",
+        "21CC_Admissions_12H_Delayed" = "Wd21 Admissions delayed 12hr",
+        "Periop_Admissions_12H_Delayed" = "Periop Admissions delayed 12hr",
+        "CC_Discharges_24H_Delayed" = "Ward Discharges delayed 24hr"
+      )))
+  }
+  assign(dfname,temp,envir=.GlobalEnv)
+}
+filenames <- list.files("../Model Outputs/",pattern="^(1|2|4|5|6).*rds$",full.names=TRUE)
+invisible(lapply(filenames,loadnameRDS))
+
+
+
+```
+
+## Explanation of graphs
+
+### Beds
+* red/blue dots - individual runs
+* blue line - average across all runs
+* grey area - roughly 95% confidence interval
+
+### Cancellations
+* Elective_OTD_Cancellations is the total for a year
+* Within that are listed "special" cancellations - eg due to lack of beds on ICU, 21CC (monitored beds on 21)
+* Special cancellations show the kind of bed the patient was originally looking for, though they won't have been cancelled if they could have gone elsewhere (eg Wd21 patient would have gone to ICU if there had been a bed)
+
+### Delays
+* Number of patients severely delayed getting out of a critical care bed, or getting into a critical care bed (including Wd21) and its type
+
+### Ward 21
+* This is a special case. There are a large number of patients recorded as having received level 2 care on Ward 21. I have assumed these represent the monitored beds, but it's clear they are occupying more than 4 beds. The model uses 8 which appears to be about right - this represent that patients moving from the monitored to unmonitored side of ward 21 remain as "level 2" in the data. Therefore it is not worth reading too much into the specific Ward 21 charts, but use it as a general indicator of pressure.
+
+## Baseline scenario
+ie present hospital
+
+### Cancellations
+
+```{r}
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`1-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`1-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"Baseline"
+## Draw data off for summary plot later
+summary_max_attribs<-max_attribs
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) ## ensure legend is reordered as well as bars
+print(ggplot(plot_max_attribs,aes(x=key,y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Baseline Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value))
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Baseline Critical Care Delays") )
+```
+
+### Occupancy (total)
+
+``` {r}
+start_date<-as.POSIXct("2019-10-01",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+resources2<-dplyr::filter(`1-resources`,resource=="bed")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+
+##Take a sample so that ggplot can do this in under an hour!
+resources_samp<-resources2[sample(nrow(resources2),50000),]
+resources_samp$rdate<-round_date(resources_samp$time,unit="day")
+resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
+
+# Daily everything with summary graph
+# ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) + geom_point(alpha=0.1,shape=16) + scale_color_gradient(low="blue", high="red") + stat_summary(fun.data="mean_sdl",geom="smooth",se=TRUE)  + xlim(start_date,end_date) + ylim(400,700)
+
+
+##Daily points with weekly data for summary graph:
+#resources4$rwdate<-round_date(resources4$time,unit="week")
+ print(ggplot(resources_samp,aes(x=rdate,y=server,color=replication)) +
+         geom_point(alpha=0.1,shape=16) +
+         scale_color_gradient(low="blue", high="red",guide=FALSE) +
+         stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE)  +
+         xlim(start_date,end_date) +
+         ylim(400,700) +labs(x="Date",y="Beds") +
+         theme_bw(base_size=12)+
+        ggtitle("Baseline whole-hospital occupancy") )
+
+```
+
+## Scenario 2
+100% Increase in DVW use
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`2-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`2-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"2"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value))
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 2 Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 2 Critical Care Delays") )
+```
+
+
+## Scenario 2b
+50% Increase in DVW use
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`2b-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`2b-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"2b"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 2b Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 2b Critical Care Delays") )
+```
+
+## Scenario 4
+Reduction in A&E admissions
+
+25% of patients arriving via A&E, requiring no intervention, and discharged from hospital within 24 hours (ie PTWR) are instead discharged from A&E
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`4-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`4-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"4"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 4 Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 4 Critical Care Delays") )
+```
+
+## Scenario 4b
+12.5% of patients arriving via A&E, requiring no intervention, and discharged from hospital within 24 hours (ie PTWR) are instead discharged from A&E
+
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`4b-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`4b-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"4b"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 4b Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 4b Critical Care Delays") )
+```
+
+
+## Scenario 5
+Hotel for delayed discharges (must be marked as delayed in SUS data)
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`5-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`5-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"5"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 5 Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 5 Critical Care Delays") )
+```
+
+### Use of Hotel
+
+```{r}
+resources2<-filter(`5-resources`,resource=="Hotel")
+resources2$time<-as.POSIXct(resources2$time,origin="1970-01-01 00:00.00 UTC")
+resources2$rdate<-round_date(resources2$time,unit="day")
+resources2$rwdate<-round_date(resources2$time,unit="week")
+
+print(ggplot(resources2,aes(x=rdate,y=server,color=replication)) +
+        geom_point(alpha=0.1,shape=16) +
+        scale_color_gradient(low="blue", high="red",guide=FALSE) +
+        stat_summary(aes(x=rwdate,y=server),fun.data="mean_sdl",geom="smooth",se=TRUE,size=2)  +
+        xlim(start_date,end_date)  +
+        labs(x="Date",y="Beds") + theme_bw(base_size=12)+
+        ggtitle("Scenario 5 Hotel Occupancy"))
+
+```
+
+## Scenario 6
+Prospective rescheduling of 50% of surgery from Mar/Apr (non-urgent)
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`6-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`6-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"6"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 6 Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 6 Critical Care Delays") )
+```
+
+## Scenario 6b
+Prospective rescheduling of 50% of surgery from Apr/May and Oct/Nov (all non-urgent)
+
+### Cancellations
+
+```{r}
+## Set up data by only considering events between these dates
+start_date<-as.POSIXct("2020-03-31",origin="1970-01-01 00:00.00 UTC")
+end_date<-as.POSIXct("2021-03-31",origin="1970-01-01 00:00.00 UTC")
+`max_attribs_start`<-`6b-attribs` %>%
+  filter(time<start_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+`max_attribs_end`<-`6b-attribs` %>%
+  filter(time<end_date) %>%
+  group_by(key,replication) %>%
+  summarise(value=max(value))
+t<-`max_attribs_end` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t2<-`max_attribs_start` %>% 
+  arrange(replication) %>% 
+  pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
+t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
+t2[,c(as.character(t.diff))]<-0
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
+t3$replication<-t$replication
+max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
+max_attribs$Scenario<-"6b"
+## Draw data off for summary plot later
+summary_max_attribs<-bind_rows(summary_max_attribs,max_attribs)
+
+## Cancellations plot
+plot_max_attribs<-filter(`max_attribs`,grepl("Cancellations",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 6b Cancellations") )
+
+```
+
+### Critical Care Delays
+
+```{r}
+plot_max_attribs<-filter(`max_attribs`,grepl("delayed",key))
+plot_max_attribs$key<-with(plot_max_attribs,reorder(key,-value)) 
+print(ggplot(plot_max_attribs,aes(x=reorder(key,-value),y=value,fill=key)) +
+        geom_boxplot() +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6) +
+        theme_bw(base_size=12)+
+        theme(axis.text.x=element_blank(),axis.title.x=element_blank(),axis.title.y=element_blank())+
+        ggtitle("Scenario 6b Critical Care Delays") )
+```
+
+
+## Summary
+
+### Scenarios
+* **Baseline** - Hospital as at present
+* **2** - 100% increase in DVW use
+* **2b** - 50% increase in DVW use
+* **4** - Reduction in A&E admissions (25% of those sent home <24hrs)
+* **4b** - Reduction in A&E admissions (12.5% of those sent home <24hrs)
+* **5** - "Hotel" for delayed discharges
+* **6** - Prospective rescheduling of elective surgery away from Mar/Apr
+* **6b** - Prospective rescheduling of elective surgery away from Apr/May and Oct/Nov
+
+### On-the-day Cancellations
+```{r}
+plot_max_attribs<-filter(`summary_max_attribs`,grepl("OTD",key))
+#plot_max_attribs$key<-with(plot_max_attribs,reorder(key)) 
+print(ggplot(plot_max_attribs,aes(x=Scenario,y=value,fill=Scenario)) +
+      #  geom_boxplot(show.legend=FALSE) +
+        geom_violin(show.legend=FALSE) +
+      #  geom_dotplot(show.legend=FALSE,binaxis="y",stackdir="center") +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6,show.legend=FALSE) +
+        theme_bw(base_size=12)+
+        theme(axis.title.y=element_blank())+
+        ggtitle("On-the-day Cancellations"))
+```
+
+### ICU Admission Pressures
+```{r}
+plot_max_attribs<-filter(`summary_max_attribs`,grepl("ICU Admissions delayed 12hr",key))
+#plot_max_attribs$key<-with(plot_max_attribs,reorder(key)) 
+print(ggplot(plot_max_attribs,aes(x=Scenario,y=value,fill=Scenario)) +
+        geom_boxplot(show.legend=FALSE) +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6,show.legend=FALSE) +
+        theme_bw(base_size=12)+
+        theme(axis.title.y=element_blank())+
+        ggtitle("ICU Admissions delayed 12hrs"))
+```
+
+### Wd21 Admission Pressures
+```{r}
+plot_max_attribs<-filter(`summary_max_attribs`,grepl("Wd21 Admissions delayed 12hr",key))
+#plot_max_attribs$key<-with(plot_max_attribs,reorder(key)) 
+print(ggplot(plot_max_attribs,aes(x=Scenario,y=value,fill=Scenario)) +
+        geom_boxplot(show.legend=FALSE) +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6,show.legend=FALSE) +
+        theme_bw(base_size=12)+
+        theme(axis.title.y=element_blank())+
+        ggtitle("Wd21 Admissions delayed 12hrs"))
+```
+
+### Critical Care Discharge Pressures
+nb includes Wd21 monitored beds and Periop unit
+
+
+```{r}
+plot_max_attribs<-filter(`summary_max_attribs`,grepl("Ward Discharges delayed 24hr",key))
+#plot_max_attribs$key<-with(plot_max_attribs,reorder(key)) 
+print(ggplot(plot_max_attribs,aes(x=Scenario,y=value,fill=Scenario)) +
+        geom_boxplot(show.legend=FALSE) +
+        stat_summary(fun.y=mean, geom="point", shape=23,size=6,show.legend=FALSE) +
+        theme_bw(base_size=12)+
+        theme(axis.title.y=element_blank())+
+        ggtitle("Critical Care Discharges delayed 24hrs"))
+```
