@@ -112,7 +112,8 @@ t<-`max_attribs_end` %>%
 t2<-`max_attribs_start` %>% 
   arrange(replication) %>% 
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
-t3<-t-t2
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 max_attribs$Scenario<-"Baseline"
@@ -171,6 +172,7 @@ resources_samp$rwdate<-round_date(resources_samp$time,unit="week")
         ggtitle("Baseline whole-hospital occupancy") )
 
 ```
+### Pressure
 
 ## Scenario 7b
 Periop unit with 6 beds, all extra to hospital
@@ -197,7 +199,8 @@ t2<-`max_attribs_start` %>%
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
 t2[,c(as.character(t.diff))]<-0
-t3<-t-t2
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 max_attribs$Scenario<-"7b"
@@ -271,7 +274,8 @@ t2<-`max_attribs_start` %>%
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
 t2[,c(as.character(t.diff))]<-0
-t3<-t-t2
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 max_attribs$Scenario<-"7c"
@@ -346,7 +350,8 @@ t2<-`max_attribs_start` %>%
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
 t2[,c(as.character(t.diff))]<-0
-t3<-t-t2
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 max_attribs$Scenario<-"7d"
@@ -403,7 +408,8 @@ t2<-`max_attribs_start` %>%
   pivot_wider(names_from="key",values_from="value",values_fill=list(value=0))
 t.diff<-setdiff(colnames(t),colnames(t2)) ##may be some missing columns where values were all zero
 t2[,c(as.character(t.diff))]<-0
-t3<-t-t2
+cols<-sort(intersect(names(t),names(t2)))
+t3<-t[cols]-t2[cols]
 t3$replication<-t$replication
 max_attribs<-pivot_longer(t3,-replication,names_to="key",values_to="value")
 max_attribs$Scenario<-"7e"
