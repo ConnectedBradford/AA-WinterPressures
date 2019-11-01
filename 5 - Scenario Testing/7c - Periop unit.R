@@ -904,7 +904,7 @@ print("* Simulation started (no output) *")
 
 #envs<-pbmclapply(1:4,simmer_wrapper,mc.cores=8)
 
-envs<-future_lapply(1:16,simmer_wrapper)
+envs<-future_lapply(1:32,simmer_wrapper)
 #envs<-pbmclapply(1:1,simmer_wrapper,mc.cores=8)
 
 #envs<-simmer_wrapper(1)
