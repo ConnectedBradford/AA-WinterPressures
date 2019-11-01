@@ -488,9 +488,12 @@ traj_nxt[[x]]<-x
 
 print("* Trajectories Loaded *")
 
+c<-0
+for (i in 1:length(traj_pr1)) {
+ if (!is.null(traj_pr1[[i]])) {
+  print(i)
+c<-c+1
+ }
+}
 
-# for (i in 1:length(traj_pr1)) {
-#  if (!is.null(traj_pr1[[i]])) {
-#   print(i)
-#  }
-# }
+print(c)
