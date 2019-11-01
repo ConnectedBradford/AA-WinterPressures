@@ -58,9 +58,12 @@ emergency_spells$dr_duration<-pmax(as.numeric(emergency_spells$`_DischargeReady_
 elective_spells$dr_duration<-pmax(as.numeric(elective_spells$`_DischargeReady_DateTime`)-as.numeric(elective_spells$`_SpellStart_DateTime`),0)
 
 
-##dr_duration is na if there wasn't a discharge ready time - set it to be equal to duration if it's NA 
-emergency_spells<-mutate(emergency_spells,dr_duration=coalesce(dr_duration,duration))
-elective_spells<-mutate(elective_spells,dr_duration=coalesce(dr_duration,duration))
+##dr_duration is na if there wasn't a discharge ready time - set it to be Inf if it's NA so everything else remains the same (previously was replacing with duration which may have side-effects)
+#emergency_spells<-mutate(emergency_spells,dr_duration=coalesce(dr_duration,duration))
+#elective_spells<-mutate(elective_spells,dr_duration=coalesce(dr_duration,duration))
+emergency_spells<-replace_na(emergency_spells,list(dr_duration=Inf))
+elective_spells<-replace_na(elective_spells,list(dr_duration=Inf))
+
 
 print("* Added discharge ready data *")
 
