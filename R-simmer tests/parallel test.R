@@ -29,7 +29,7 @@ library(parallel)
     add_resource("doctor", 2) %>%
     add_resource("administration", 1) %>%
     add_generator("patient", patient, function() rnorm(1, 10, 2)) %>%
-    run(80) %>%
+    simmer::run(80) %>%
     wrap()
   }
   

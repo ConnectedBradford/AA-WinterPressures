@@ -20,7 +20,7 @@ env<-simmer()
     patientC <- trajectory("which ward") %>% 
       seize("wardA") %>% 
       timeout(5) %>% 
-      renege_in(10,out=log_failure) %>% 
+        renege_in(10,out=log_failure) %>% ##,leaveresources=FALSE
       seize("wardB") %>% 
       renege_abort() %>% 
       release("wardA") %>% 

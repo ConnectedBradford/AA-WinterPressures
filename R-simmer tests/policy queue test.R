@@ -15,10 +15,14 @@ env<-simmer()
       timeout(40) %>% 
       release("wardB")
     
+    noqueue <-trajectory("no queue") %>% 
+      log_("No queueing allowed")
+    
     patientC <- trajectory("which ward") %>% 
       select(c("wardA","wardB"),policy="shortest-queue-available") %>% 
       log_(function() {get_selected(env)}) %>% 
-      seize_selected() %>% 
+      seize_selected(continue=FALSE,willqueue=TRUE,reject=noqueue) %>% 
+      log_("seized") %>% 
       timeout(40) %>% 
       release_selected
     

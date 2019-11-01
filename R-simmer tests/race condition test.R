@@ -8,12 +8,14 @@ unfinished <- trajectory() %>%
   log_("**** UNFINISHED - SHOULD NEVER BE REACHED ****")
 
 queuetryagain <- trajectory() %>% 
+  #set_prioritization(c(1,-1,-1)) %>% 
   set_queue_size("wardA",1,mod="+") %>% 
   seize("wardA") %>% 
   set_queue_size("wardA",-1,mod="+")
 
 
 queuetryagainB <- trajectory() %>% 
+ # set_prioritization(c(1,-1,-1)) %>% 
   set_queue_size("wardA",1,mod="+") %>% 
   seize("wardA") %>% 
   set_queue_size("wardA",-1,mod="+")

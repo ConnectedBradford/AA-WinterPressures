@@ -41,6 +41,6 @@ bank <-
   add_resource("counter1", 10) %>%
   add_generator("Customer", customer, function() {c(0, rexp(4, 1/10),0,0,0, -1)})
 
-bank %>% run(until = 400)
+bank %>% simmer::run(until = 400)
 
 print(plot(customer))
