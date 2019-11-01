@@ -26,9 +26,9 @@ In the event of any conflicts between the two, the GPL takes precedence
 
 ## Installation/Use
 
-This is proof-of-concept code and is based on Bradford Royal Infirmary. The intention is to show that modelling of this scale, using routinely-available data sources, is possible, and to provide code showing how it might be done.
+This is proof-of-concept code and is based on Bradford Royal Infirmary. The intention is to show that modelling of this scale, using routinely-available data sources, is possible, and to provide code showing how it might be done. As-is, it is not general-purpose enough to work elsewhere.
 
-However, it should be possible to run it in your own hospital. The Bradford-centric parts have mostly been pulled out into separate files.
+However, it should in theory be possible to run it in your own hospital, but should only be undertaken by someone who understands the code as it will need modifying in places. The Bradford-centric parts have mostly been pulled out into separate files.
 
 You will need:
 
